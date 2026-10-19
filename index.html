@@ -1,0 +1,1821 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0F2238">
+<title>Trabalho de Homem</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Barlow Condensed é a fonte da logo; Barlow (mesma família, largura
+     normal) fica no texto corrido para ler bem em tela pequena. -->
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   Identidade: as cores e a fonte da logo Trabalho de Homem.
+   Azul-marinho #0F2238 é a "tinta"; amarelo #F5A524 é o acento e só
+   aparece em ação principal e destaque, para não virar ruído.
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  --navy:#0F2238; --navy2:#1B3555; --navy3:#2B4A6E;
+  --yel:#F5A524; --yel-d:#D98A0B; --yel-bg:#FDF1D8;
+  --bg:#F4F1EA; --card:#FFFFFF; --line:#E2DDD1; --line2:#EEEAE1;
+  --text:#0F2238; --text2:#475569; --text3:#8591A2;
+  --green:#2F7D4F; --green-bg:#E3F1E8;
+  --red:#B23A3A;   --red-bg:#F8E4E4;
+  --blue:#2E5E9E;  --blue-bg:#E5EDF8;
+  --gray-bg:#ECE9E2;
+  --r:14px; --tab-h:64px; --head-h:56px; --side-w:232px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{min-height:100%;background:var(--bg);color:var(--text);
+  font-family:'Barlow',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:15px;
+  -webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:inherit}
+.hidden{display:none!important}
+svg.ic{width:1.1em;height:1.1em;vertical-align:-.18em;fill:none;stroke:currentColor;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.cond{font-family:'Barlow Condensed','Arial Narrow',sans-serif}
+
+/* ── Login ─────────────────────────────────────────────────────────── */
+#login{position:fixed;inset:0;z-index:50;background:var(--navy);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:24px;overflow:auto}
+.login-brand{display:flex;flex-direction:column;align-items:center;gap:14px;margin-bottom:28px;color:#fff}
+.login-brand img{width:92px;height:92px}
+.wordmark{font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;line-height:.86;
+  letter-spacing:1px;text-align:center}
+.wordmark .l1{display:block;font-size:46px}
+.wordmark .l2{display:block;font-size:46px;color:var(--yel);position:relative}
+.wordmark .cwb{font-size:15px;font-weight:600;color:#D6DEE8;letter-spacing:1px;margin-left:3px}
+.login-tag{font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:2px;font-size:13px;white-space:nowrap;
+  text-transform:uppercase;color:#D6DEE8;display:flex;align-items:center;gap:10px}
+.login-tag:before,.login-tag:after{content:"";width:26px;height:2px;background:var(--yel)}
+.login-box{background:var(--bg);border-radius:20px;padding:24px 22px 20px;width:100%;max-width:370px}
+.login-box h1{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;margin-bottom:16px}
+.login-err{background:var(--red-bg);color:var(--red);border-radius:10px;padding:10px 12px;font-size:13.5px;margin-bottom:12px}
+
+/* ── Estrutura ─────────────────────────────────────────────────────── */
+#app{min-height:100vh}
+header.top{position:sticky;top:0;z-index:20;height:calc(var(--head-h) + env(safe-area-inset-top));
+  padding:env(safe-area-inset-top) 14px 0;background:var(--navy);color:#fff;display:flex;align-items:center;gap:10px}
+header.top .brand{display:flex;align-items:center;gap:9px;text-decoration:none;color:#fff;flex:1;min-width:0}
+header.top .brand img{width:32px;height:32px}
+header.top .brand b{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:19px;letter-spacing:.5px;
+  text-transform:uppercase;white-space:nowrap}
+header.top .brand b span{color:var(--yel)}
+.icon-btn{width:40px;height:40px;border-radius:12px;border:0;background:transparent;color:inherit;display:grid;
+  place-items:center;cursor:pointer;flex-shrink:0}
+.icon-btn:active{background:rgba(255,255,255,.12)}
+.icon-btn svg.ic{width:22px;height:22px}
+nav.side{display:none}
+main#view{padding:16px 16px calc(var(--tab-h) + 28px + env(safe-area-inset-bottom));max-width:880px;margin:0 auto}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;height:calc(var(--tab-h) + env(safe-area-inset-bottom));
+  padding-bottom:env(safe-area-inset-bottom);background:var(--card);border-top:1px solid var(--line);display:flex}
+nav.tabs a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  text-decoration:none;color:var(--text3);font-size:11.5px;font-weight:600}
+nav.tabs a svg.ic{width:23px;height:23px}
+nav.tabs a.on{color:var(--navy)}
+nav.tabs a.on svg.ic{color:var(--yel-d)}
+@media (min-width:900px){
+  nav.tabs{display:none}
+  nav.side{display:flex;flex-direction:column;gap:2px;position:fixed;top:var(--head-h);bottom:0;left:0;width:var(--side-w);
+    padding:16px 12px;background:var(--card);border-right:1px solid var(--line)}
+  nav.side a{display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:11px;text-decoration:none;
+    color:var(--text2);font-weight:600}
+  nav.side a.on{background:var(--yel-bg);color:var(--navy)}
+  nav.side .sep{height:1px;background:var(--line);margin:10px 4px}
+  main#view{margin-left:var(--side-w);padding-bottom:40px;max-width:none}
+  main#view>.wrap{max-width:880px;margin:0 auto}
+}
+
+/* ── Peças ─────────────────────────────────────────────────────────── */
+h2.pg{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;line-height:1.05;letter-spacing:.2px}
+.pg-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:4px 0 16px}
+.pg-sub{color:var(--text3);font-size:13.5px;margin-top:3px}
+.back{display:inline-flex;align-items:center;gap:4px;color:var(--text2);text-decoration:none;font-weight:600;
+  font-size:14px;margin-bottom:8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.card+.card,.card+.sec,.sec+.card{margin-top:12px}
+.sec{font-family:'Barlow Condensed',sans-serif;font-size:13.5px;font-weight:700;letter-spacing:1.4px;
+  text-transform:uppercase;color:var(--text3);margin:22px 2px 9px;display:flex;align-items:center;
+  justify-content:space-between;gap:8px}
+.sec .lnk{font-family:'Barlow',sans-serif;letter-spacing:0;text-transform:none;font-size:13.5px;color:var(--blue);
+  font-weight:600;background:none;border:0;cursor:pointer;text-decoration:none}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:13px 14px;text-decoration:none;display:block}
+.kpi .k{font-size:12.5px;color:var(--text3);font-weight:600}
+.kpi .v{font-family:'Barlow Condensed',sans-serif;font-size:25px;font-weight:700;margin-top:2px}
+.kpi .s{font-size:12px;color:var(--text3);margin-top:1px}
+.kpi.hi{background:var(--navy);border-color:var(--navy);color:#fff}
+.kpi.hi .k,.kpi.hi .s{color:#AFC0D6}
+.kpi.hi .v{color:var(--yel)}
+.list{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:13px 14px;border-top:1px solid var(--line2);
+  text-decoration:none;color:inherit;cursor:pointer;background:none;width:100%;text-align:left;border-left:0;border-right:0;border-bottom:0}
+.row:first-child{border-top:0}
+.row:active{background:var(--line2)}
+.row .main{flex:1;min-width:0}
+.row .t{font-weight:600;line-height:1.25;overflow:hidden;text-overflow:ellipsis}
+.row .m{font-size:13px;color:var(--text3);margin-top:2px;line-height:1.3}
+.row .r{text-align:right;flex-shrink:0}
+.row .val{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700}
+.date-pill{width:46px;flex-shrink:0;text-align:center;background:var(--bg);border-radius:10px;padding:5px 0;line-height:1}
+.date-pill b{display:block;font-family:'Barlow Condensed',sans-serif;font-size:21px}
+.date-pill span{font-size:10.5px;text-transform:uppercase;color:var(--text3);font-weight:700;letter-spacing:.5px}
+.empty{padding:22px 16px;text-align:center;color:var(--text3);font-size:14px}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:99px;
+  white-space:nowrap;letter-spacing:.2px}
+.b-gray{background:var(--gray-bg);color:var(--text2)}
+.b-yel{background:var(--yel-bg);color:#8A5A06}
+.b-green{background:var(--green-bg);color:var(--green)}
+.b-red{background:var(--red-bg);color:var(--red)}
+.b-blue{background:var(--blue-bg);color:var(--blue)}
+.b-navy{background:var(--navy);color:#fff}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:0;border-radius:12px;
+  padding:12px 16px;font-weight:700;font-size:14.5px;cursor:pointer;text-decoration:none;white-space:nowrap;line-height:1.1}
+.btn:disabled{opacity:.5;cursor:default}
+.btn-p{background:var(--yel);color:var(--navy)}
+.btn-p:active{background:var(--yel-d)}
+.btn-n{background:var(--navy);color:#fff}
+.btn-s{background:var(--card);color:var(--navy);border:1.5px solid var(--line)}
+.btn-g{background:transparent;color:var(--text2)}
+.btn-d{background:var(--red-bg);color:var(--red)}
+.btn-sm{padding:8px 11px;font-size:13px;border-radius:10px}
+.btn-w{width:100%}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.fab{position:fixed;right:16px;bottom:calc(var(--tab-h) + 16px + env(safe-area-inset-bottom));z-index:15;
+  border-radius:16px;padding:14px 18px;box-shadow:0 10px 24px -10px rgba(15,34,56,.55)}
+@media (min-width:900px){.fab{bottom:24px;right:28px}}
+
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;min-width:0}
+.field label,.lbl{font-size:12.5px;font-weight:700;color:var(--text2)}
+.field .hint{font-size:12px;color:var(--text3)}
+input.in,select.in,textarea.in{width:100%;background:var(--card);border:1.5px solid var(--line);border-radius:11px;
+  padding:11px 12px;font-size:15.5px;outline:none;min-width:0}
+textarea.in{resize:vertical;min-height:70px;line-height:1.4}
+input.in:focus,select.in:focus,textarea.in:focus{border-color:var(--navy3)}
+input.in:disabled,textarea.in:disabled,select.in:disabled{background:var(--bg);color:var(--text2)}
+.in.num{text-align:right;font-variant-numeric:tabular-nums}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.f3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1.5px solid var(--line);background:var(--card);border-radius:99px;padding:7px 12px;font-size:13.5px;
+  font-weight:600;cursor:pointer;color:var(--text2)}
+.chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.seg{display:flex;background:var(--gray-bg);border-radius:11px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:transparent;border-radius:9px;padding:8px 6px;font-weight:700;font-size:13px;
+  color:var(--text2);cursor:pointer}
+.seg button.on{background:var(--card);color:var(--navy);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.search{position:relative;margin-bottom:12px}
+.search input{padding-left:38px}
+.search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text3)}
+
+/* ── Agenda ────────────────────────────────────────────────────────── */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.cal-nav h3{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:capitalize}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal .wd{font-size:11px;font-weight:700;color:var(--text3);text-align:center;padding:4px 0;text-transform:uppercase}
+.cal button{aspect-ratio:1/1.05;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:5px 0 0;
+  display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;min-width:0}
+.cal button.out{opacity:.35}
+@media (min-width:900px){.cal button{aspect-ratio:auto;height:66px}}
+.cal button.today{border-color:var(--navy);border-width:2px}
+.cal button.sel{background:var(--navy);border-color:var(--navy);color:#fff}
+.cal button b{font-size:14.5px;font-weight:700}
+.cal .dots{display:flex;gap:3px;flex-wrap:wrap;justify-content:center;padding:0 3px}
+.dot{width:7px;height:7px;border-radius:50%}
+.d-tdh{background:var(--yel)}
+.d-dil{background:var(--navy3)}
+.d-blq{background:var(--red)}
+.cal button.sel .d-dil{background:#AFC0D6}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--text3);margin:10px 2px 0}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.tag-dil{border-left:4px solid var(--navy3)}
+.tag-tdh{border-left:4px solid var(--yel)}
+.tag-blq{border-left:4px solid var(--red)}
+
+/* ── Orçamento: itens ─────────────────────────────────────────────── */
+.item{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.item.interno{background:#FAF8F3;border-style:dashed}
+.item-h{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.item-n{width:26px;height:26px;border-radius:8px;background:var(--navy);color:#fff;display:grid;place-items:center;
+  font-weight:700;font-size:13px;flex-shrink:0}
+.item.interno .item-n{background:var(--gray-bg);color:var(--text2)}
+.item-h .sp{flex:1}
+.price-box{background:var(--bg);border-radius:11px;padding:10px 12px;display:flex;align-items:center;gap:10px}
+.price-box .in{background:var(--card);font-family:'Barlow Condensed',sans-serif;font-size:21px;font-weight:700;
+  padding:6px 10px}
+.sug{font-size:12.5px;color:var(--text3);margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sug button{border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer;font-size:12.5px;padding:0}
+.totbar{position:sticky;bottom:calc(var(--tab-h) + 8px + env(safe-area-inset-bottom));z-index:10;margin-top:14px;
+  background:var(--navy);color:#fff;border-radius:16px;padding:12px 16px;box-shadow:0 12px 28px -14px rgba(15,34,56,.7)}
+@media (min-width:900px){.totbar{bottom:14px}}
+.totbar .big{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.totbar .big span{font-size:12.5px;color:#AFC0D6;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+.totbar .big b{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:800;color:var(--yel)}
+.totbar .det{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 10px;margin-top:6px;font-size:12px;color:#AFC0D6}
+.totbar .det b{display:block;color:#fff;font-size:14px;font-weight:600}
+.lock-note{display:flex;gap:9px;align-items:flex-start;background:var(--yel-bg);color:#6E4A08;border-radius:12px;
+  padding:11px 13px;font-size:13.5px;margin-bottom:12px;line-height:1.35}
+
+/* ── Resumo do serviço ────────────────────────────────────────────── */
+.sumtab{width:100%;border-collapse:collapse;font-size:14.5px}
+.sumtab td{padding:6px 0}
+.sumtab td:last-child{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.sumtab tr.tot td{border-top:1.5px solid var(--line);padding-top:9px;font-weight:800;font-size:16px}
+.sumtab .neg{color:var(--red)}
+
+/* ── Modal (folha de baixo no celular) ────────────────────────────── */
+#modal{position:fixed;inset:0;z-index:40;background:rgba(15,34,56,.45);display:flex;align-items:flex-end;justify-content:center}
+#modal .sheet{background:var(--bg);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;
+  padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+@media (min-width:640px){#modal{align-items:center}#modal .sheet{border-radius:20px;max-height:86vh}}
+.sheet-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.sheet-h h3{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700}
+.warn{background:var(--yel-bg);color:#6E4A08;border-radius:12px;padding:10px 12px;font-size:13.5px;margin-bottom:8px;
+  display:flex;gap:8px;line-height:1.35}
+
+/* Aviso no topo: embaixo ele cobria a barra de total do orçamento. */
+#toast{position:fixed;left:50%;top:calc(var(--head-h) + 12px + env(safe-area-inset-top));transform:translateX(-50%);
+  z-index:60;background:var(--navy);color:#fff;padding:11px 16px;border-radius:12px;font-weight:600;font-size:14px;
+  max-width:calc(100% - 32px);box-shadow:0 10px 24px -10px rgba(0,0,0,.5)}
+#toast.err{background:var(--red)}
+#loading{position:fixed;inset:0;z-index:55;background:rgba(244,241,234,.6);display:grid;place-items:center}
+.spin{width:34px;height:34px;border:3.5px solid var(--line);border-top-color:var(--navy);border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* Valores ocultos (olho no topo): para mostrar o app ao cliente sem expor
+   lucro e repasse. */
+body.oculto .money{filter:blur(7px);user-select:none}
+
+/* ── PDF do orçamento ─────────────────────────────────────────────── */
+#pdf-wrap{position:fixed;inset:0;z-index:45;background:#3A4250;display:flex;flex-direction:column}
+#pdf-bar{display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;background:var(--navy);color:#fff}
+#pdf-bar .t{flex:1;font-weight:700}
+#pdf-scroll{flex:1;overflow:auto;padding:16px 0 40px}
+#pdf-scale{transform-origin:top left}
+.pdf-page{width:794px;height:1123px;background:#fff;margin:0 auto 18px;position:relative;overflow:hidden;
+  font-family:'Barlow',sans-serif;color:#0F2238;display:flex;flex-direction:column}
+.pdf-accent{height:10px;background:#F5A524;flex-shrink:0}
+.pdf-in{padding:34px 48px 0;display:flex;flex-direction:column;gap:20px;flex:1;min-height:0;overflow:hidden}
+.pdf-foot{padding:10px 48px 26px;display:flex;justify-content:space-between;font-size:12px;color:#5A6169;flex-shrink:0}
+.pdf-lh{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:16px;border-bottom:2px solid #0F2238;flex-shrink:0}
+.pdf-lh .b{display:flex;align-items:center;gap:14px}
+.pdf-lh .b img{width:58px;height:58px}
+.pdf-lh .wm{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:33px;line-height:.9;letter-spacing:.5px;text-transform:uppercase}
+.pdf-lh .wm span{color:#D98A0B}
+.pdf-lh .wm small{font-size:14px;font-weight:600;color:#5A6169;letter-spacing:1px;margin-left:3px}
+.pdf-lh .sl{font-size:12px;color:#5A6169;margin-top:5px;letter-spacing:.3px}
+.pdf-lh .ct{text-align:right;font-size:12px;line-height:1.5}
+.pdf-lh .ct b{font-weight:600}
+.pdf-title{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-shrink:0}
+.pdf-title h1{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:36px;line-height:1;letter-spacing:.5px}
+.pdf-title p{font-size:13px;color:#5A6169;margin-top:6px}
+.pdf-meta{display:grid;grid-template-columns:auto auto;column-gap:18px;row-gap:4px;font-size:12px;background:#F3F1EC;
+  padding:12px 16px;border-radius:4px;min-width:300px}
+.pdf-meta span{color:#5A6169}
+.pdf-meta b{font-weight:600}
+table.pdf-t{width:100%;border-collapse:collapse;font-size:13px}
+table.pdf-t th{background:#0F2238;color:#fff;font-weight:600;padding:8px 10px;text-align:left}
+table.pdf-t td{padding:8px 10px;vertical-align:top;border-bottom:1px solid #D5D2CA}
+table.pdf-t td.n{color:#5A6169;width:28px}
+table.pdf-t td.v,table.pdf-t th.v{text-align:right;white-space:nowrap;width:120px}
+table.pdf-t .it{font-weight:600}
+table.pdf-t .ds{color:#5A6169;font-size:12px;margin-top:2px;line-height:1.4}
+.pdf-total{display:flex;justify-content:flex-end;flex-shrink:0}
+.pdf-total div{display:flex;align-items:center;gap:24px;background:#0F2238;color:#fff;padding:14px 20px;border-radius:4px}
+.pdf-total span{font-size:13px;letter-spacing:.5px}
+.pdf-total b{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:30px;color:#F5A524}
+.pdf-h2{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:27px;line-height:1;flex-shrink:0}
+.pdf-cl{display:flex;flex-direction:column;gap:4px;font-size:13.5px;line-height:1.5;flex-shrink:0}
+.pdf-cl h4{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:17px;display:flex;align-items:center;gap:8px}
+.pdf-cl h4:before{content:"";width:10px;height:10px;background:#F5A524;display:inline-block}
+.pdf-box{background:#F3F1EC;border-radius:4px;padding:15px 20px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.pdf-box span{font-size:13px}
+.pdf-box b{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:24px}
+.pdf-sign{flex-shrink:0}
+.pdf-sign h4{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:17px}
+.pdf-sign p{font-size:13px;margin-top:6px}
+.pdf-sign .g{display:grid;grid-template-columns:1fr 1fr;column-gap:48px;margin-top:52px}
+.pdf-sign .g div{border-top:1px solid #0F2238;padding-top:8px;font-size:12px;line-height:1.5}
+.pdf-sign .g b{font-weight:600}
+.pdf-sign .g span{color:#5A6169}
+.pdf-draft{position:absolute;top:44%;left:50%;transform:translate(-50%,-50%) rotate(-24deg);font-family:'Barlow Condensed',sans-serif;
+  font-weight:800;font-size:120px;color:rgba(178,58,58,.12);letter-spacing:8px;pointer-events:none;white-space:nowrap}
+@media print{
+  @page{size:A4;margin:0}
+  body>*:not(#pdf-wrap){display:none!important}
+  #pdf-wrap{position:static;background:#fff;display:block}
+  #pdf-bar{display:none}
+  #pdf-scroll{overflow:visible;padding:0}
+  #pdf-scale{transform:none!important;width:auto!important;height:auto!important}
+  .pdf-page{margin:0;page-break-after:always;break-after:page}
+  .pdf-page:last-child{page-break-after:auto;break-after:auto}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ LOGIN ═══════════════════════════════════════════════════════ -->
+<div id="login" class="hidden">
+  <div class="login-brand">
+    <img src="simbolo.svg" alt="">
+    <div class="wordmark"><span class="l1">Trabalho</span><span class="l2">de Homem<span class="cwb">.CWB</span></span></div>
+    <div class="login-tag">Reparos · Montagem · Instalação</div>
+  </div>
+  <form class="login-box" id="login-form" autocomplete="on">
+    <h1>Entrar</h1>
+    <div id="login-err" class="login-err hidden"></div>
+    <div class="field"><label for="l-email">E-mail</label>
+      <input class="in" id="l-email" type="email" autocomplete="username" required></div>
+    <div class="field"><label for="l-pass">Senha</label>
+      <input class="in" id="l-pass" type="password" autocomplete="current-password" required></div>
+    <button class="btn btn-p btn-w" id="l-btn" type="submit">Entrar</button>
+  </form>
+</div>
+
+<!-- ═══ APP ═════════════════════════════════════════════════════════ -->
+<div id="app" class="hidden">
+  <header class="top">
+    <a class="brand" href="#/painel"><img src="simbolo.svg" alt=""><b>Trabalho <span>de Homem</span></b></a>
+    <button class="icon-btn" id="eye-btn" title="Ocultar valores" onclick="toggleOculto()"></button>
+  </header>
+  <nav class="side" id="side"></nav>
+  <main id="view"></main>
+  <nav class="tabs" id="tabs"></nav>
+</div>
+
+<div id="modal" class="hidden" onclick="if(event.target===this)closeModal()"><div class="sheet" id="sheet"></div></div>
+<div id="toast" class="hidden"></div>
+<div id="loading" class="hidden"><div class="spin"></div></div>
+
+<script>
+'use strict';
+/* ═══════════════════════════════════════════════════════════════════
+   Trabalho de Homem — app de serviços, orçamentos e agenda.
+   Mesmo projeto Supabase do Diligências, mas só em tabelas tdh_*:
+   o Diligências lê "demandas" inteira e o Fullfin importa toda demanda
+   paga, então gravar lá misturaria os dois negócios.
+   Estrutura do banco: previmater-ops/_sql/tdh_01_estrutura.sql
+   ═══════════════════════════════════════════════════════════════════ */
+const SB_URL = 'https://ggyngtqknonwnohbzkyj.supabase.co';
+const SB_KEY = 'sb_publishable_WJOo1uEpdSXTPoPDlErTJw_vPSe5x1S';
+// Cadastro interno "Esdras" na tabela terceiros do Diligências. É por ele
+// que a agenda acha as suas diligências e os seus bloqueios.
+const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
+// Dados do timbrado. Ficam aqui, e não no banco, porque mudam quase nunca
+// e o orçamento 653 já saiu com eles.
+const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
+  slogan:'Reparos, instalações e manutenção · Curitiba e região' };
+const APP_VER = '1.0.0';
+
+/* ═══ Cliente Supabase ═══════════════════════════════════════════════
+   Escrito à parte, e não copiado do Diligências, porque o de lá aceita
+   um filtro só por consulta, grava só a primeira linha de um lote e não
+   renova o login: depois de 1 hora a sessão cai e pede senha de novo. */
+let sess = null;
+try { sess = JSON.parse(localStorage.getItem('tdh_sess') || 'null'); } catch(e) { sess = null; }
+
+function saveSess(s){ sess = s; try { s ? localStorage.setItem('tdh_sess', JSON.stringify(s)) : localStorage.removeItem('tdh_sess'); } catch(e){} }
+
+let refreshing = null;
+async function refreshSess(){
+  if (!sess?.refresh_token) throw new Error('sem sessão');
+  // Uma renovação por vez: várias consultas em paralelo com token vencido
+  // pediriam várias renovações, e só a primeira vale.
+  if (!refreshing) refreshing = (async () => {
+    const r = await fetch(SB_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method:'POST', headers:{'Content-Type':'application/json', apikey:SB_KEY},
+      body: JSON.stringify({ refresh_token: sess.refresh_token })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { saveSess(null); throw new Error('Sessão expirada. Entre de novo.'); }
+    if (!d.expires_at) d.expires_at = Math.floor(Date.now()/1000) + (d.expires_in || 3600);
+    saveSess(d);
+  })().finally(() => { refreshing = null; });
+  return refreshing;
+}
+
+async function api(path, opt = {}, retry = true){
+  if (sess?.expires_at && sess.expires_at - 60 < Date.now()/1000) { try { await refreshSess(); } catch(e) { onSignedOut(); throw e; } }
+  const h = { apikey:SB_KEY, 'Content-Type':'application/json', ...(opt.headers || {}) };
+  h.Authorization = 'Bearer ' + (sess?.access_token || SB_KEY);
+  const r = await fetch(SB_URL + path, { ...opt, headers:h });
+  if (r.status === 401 && retry && sess?.refresh_token) {
+    try { await refreshSess(); } catch(e) { onSignedOut(); throw e; }
+    return api(path, opt, false);
+  }
+  const txt = await r.text();
+  let d = null; try { d = txt ? JSON.parse(txt) : null; } catch(e) { d = txt; }
+  if (!r.ok) throw new Error((d && (d.message || d.msg || d.error_description || d.hint)) || ('Erro ' + r.status));
+  return d;
+}
+const db = {
+  sel: (t, qs = '') => api(`/rest/v1/${t}?select=*${qs}`),
+  // Só as colunas pedidas: usado nas tabelas do Diligências, para não
+  // trazer ao celular dado de contratante que este app não usa.
+  cols: (t, cols, qs = '') => api(`/rest/v1/${t}?select=${cols}${qs}`),
+  // Aceita objeto ou lista: lote vai num POST só, tudo ou nada.
+  ins: (t, rows) => api(`/rest/v1/${t}`, { method:'POST', headers:{Prefer:'return=representation'}, body:JSON.stringify(rows) }),
+  upd: (t, filt, obj) => api(`/rest/v1/${t}?${filt}`, { method:'PATCH', headers:{Prefer:'return=representation'}, body:JSON.stringify(obj) }),
+  del: (t, filt) => api(`/rest/v1/${t}?${filt}`, { method:'DELETE' }),
+  rpc: (fn, args) => api(`/rest/v1/rpc/${fn}`, { method:'POST', body:JSON.stringify(args || {}) }),
+};
+const eqId = id => 'id=eq.' + encodeURIComponent(id);
+
+/* ═══ Utilidades ═════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v => { const n = Number(v); return isFinite(n) ? n : 0; };
+const BRL = new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' });
+const money = v => BRL.format(num(v));
+const m$ = v => `<span class="money">${money(v)}</span>`;
+// Aceita "1.234,56", "1234,56", "1234.56" e "R$ 50". Vírgula manda: com
+// vírgula, ponto é milhar; sem vírgula, ponto é decimal.
+function parseMoney(s){
+  s = String(s ?? '').replace(/[R$\s]/g, '');
+  if (!s) return 0;
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(s); return isFinite(n) ? Math.round(n*100)/100 : 0;
+}
+const moneyIn = v => num(v) ? num(v).toFixed(2).replace('.', ',') : '';
+// Tempo: "1h30", "1:30", "90" (minutos), "2h", "1,5h".
+function parseTempo(s){
+  s = String(s ?? '').trim().toLowerCase().replace(/\s/g, '');
+  if (!s) return null;
+  let m;
+  if ((m = s.match(/^(\d+)[:h](\d{1,2})m?(in)?$/))) return +m[1]*60 + +m[2];
+  if ((m = s.match(/^(\d+(?:[.,]\d+)?)h$/))) return Math.round(parseFloat(m[1].replace(',', '.'))*60);
+  if ((m = s.match(/^(\d+)(m|min)?$/))) return +m[1];
+  return null;
+}
+function fmtTempo(min){
+  min = num(min); if (!min) return '';
+  const h = Math.floor(min/60), m = min % 60;
+  return h ? (m ? `${h}h${String(m).padStart(2,'0')}` : `${h}h`) : `${m}min`;
+}
+// Datas sempre em ISO local (AAAA-MM-DD). toISOString() daria a data em
+// UTC, e depois das 21h em Curitiba isso já é o dia seguinte.
+function iso(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+const hoje = () => iso(new Date());
+const parseISO = s => { const [y,m,d] = String(s).slice(0,10).split('-').map(Number); return new Date(y, m-1, d); };
+const addDias = (s, n) => { const d = parseISO(s); d.setDate(d.getDate()+n); return iso(d); };
+const fmtData = s => s ? String(s).slice(0,10).split('-').reverse().join('/') : '';
+const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+const DSEM = ['dom','seg','ter','qua','qui','sex','sáb'];
+const hhmm = t => t ? String(t).slice(0,5) : '';
+const toMin = t => { if (!t) return null; const [h,m] = String(t).split(':').map(Number); return h*60 + (m||0); };
+const onlyDigits = s => String(s ?? '').replace(/\D/g, '');
+function waLink(phone, text){
+  let d = onlyDigits(phone); if (!d) return null;
+  if (d.length <= 11) d = '55' + d;
+  return 'https://wa.me/' + d + (text ? '?text=' + encodeURIComponent(text) : '');
+}
+const mapsLink = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+const uniq = a => [...new Set(a)];
+
+function toast(msg, err){
+  const t = $('toast'); t.textContent = msg; t.className = err ? 'err' : '';
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.add('hidden'), err ? 4500 : 2400);
+}
+function loading(on){ $('loading').classList.toggle('hidden', !on); }
+// Envolve toda ação que grava: mostra a espera, captura o erro e avisa.
+async function act(fn, okMsg){
+  loading(true);
+  try { const r = await fn(); if (okMsg) toast(okMsg); return r; }
+  catch(e) { console.error(e); toast(e.message || 'Algo deu errado.', true); return undefined; }
+  finally { loading(false); }
+}
+
+const IC = {
+  home:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/>',
+  cal:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  file:'<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+  wrench:'<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+  users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14a6.5 6.5 0 0 1 3.5 6"/>',
+  user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  cfg:'<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>', left:'<path d="m15 18-6-6 6-6"/>', right:'<path d="m9 18 6-6-6-6"/>',
+  eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  eyeoff:'<path d="M3 3l18 18"/><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2M6.6 6.6C3.9 8.4 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
+  phone:'<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/>',
+  pin:'<path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/>',
+  copy:'<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>',
+  trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>', check:'<path d="m5 12 5 5 9-10"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', up:'<path d="m6 15 6-6 6 6"/>', down:'<path d="m6 9 6 6 6-6"/>',
+  x:'<path d="M6 6l12 12M18 6 6 18"/>', logout:'<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h11"/>',
+  share:'<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.4M8.2 13.2l7.6 4.4"/>',
+  print:'<path d="M6 9V3h12v6M6 18H4v-7h16v7h-2"/><rect x="6" y="14" width="12" height="7"/>',
+  alert:'<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/>',
+  lock:'<rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  case:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V4h6v3M3 13h18"/>',
+  more:'<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  money:'<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>',
+  send:'<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>', edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/>',
+};
+const ic = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
+
+/* ═══ Estado ═════════════════════════════════════════════════════════
+   Volume pequeno (um negócio, uma pessoa): carrega tudo no login e
+   recarrega só a tabela que mudou. Evita consulta a cada tela. */
+const S = {
+  cfg:null, clientes:[], prestadores:[], orcs:[], itens:[], servicos:[], agendas:[], receb:[], vinc:[],
+  dil:[], blq:[], dilOk:true,
+};
+const TAB = {
+  clientes:['tdh_clientes','&order=nome.asc'], prestadores:['tdh_prestadores','&order=nome.asc'],
+  orcs:['tdh_orcamentos','&order=created_at.desc'], itens:['tdh_orcamento_itens','&order=ordem.asc'],
+  servicos:['tdh_servicos','&order=created_at.desc'], agendas:['tdh_agendas','&order=data.asc,horario_inicio.asc'],
+  receb:['tdh_recebimentos','&order=created_at.asc'], vinc:['tdh_servico_prestadores','&order=created_at.asc'],
+};
+async function load(...keys){
+  await Promise.all(keys.map(async k => { S[k] = await db.sel(TAB[k][0], TAB[k][1]) || []; }));
+}
+async function loadCfg(){ const r = await db.sel('tdh_config', '&id=eq.1'); S.cfg = r?.[0] || null; return S.cfg; }
+
+// Diligências e bloqueios do Esdras, só leitura, para a agenda e o aviso
+// de conflito. Falha aqui não pode travar o app: é informação de apoio.
+async function loadDiligencias(){
+  const desde = addDias(hoje(), -60);
+  try {
+    const [dem, vinc, blq] = await Promise.all([
+      db.cols('demandas', 'id,data,horario,descricao,responsavel,local,cidade,status', `&data=gte.${desde}&order=data.asc`),
+      db.cols('demanda_terceiros', 'demanda_id', `&terceiro_id=eq.${ESDRAS_TERC}`),
+      db.cols('bloqueios', 'id,data,horario_inicio,horario_fim,motivo,terceiro_id', `&data=gte.${desde}&or=(terceiro_id.eq.${ESDRAS_TERC},terceiro_id.is.null)&order=data.asc`),
+    ]);
+    const meus = new Set((vinc || []).map(v => v.demanda_id));
+    S.dil = (dem || []).filter(d => d.responsavel === 'Esdras' || meus.has(d.id))
+      .map(d => ({ id:d.id, data:String(d.data).slice(0,10), horario:d.horario, descricao:d.descricao, local:d.local || d.cidade, status:d.status }));
+    S.blq = blq || [];
+    S.dilOk = true;
+  } catch(e) { console.warn('diligências', e); S.dil = []; S.blq = []; S.dilOk = false; }
+}
+// Bloqueios que nascem dos nossos serviços já aparecem como serviço na
+// agenda. Mostrar de novo seria duplicado.
+function blqExternos(){ const nossos = new Set(S.agendas.map(a => a.bloqueio_id).filter(Boolean));
+  return S.blq.filter(b => !nossos.has(b.id) && b.motivo !== 'Trabalho de Homem'); }
+
+const cliente = id => S.clientes.find(c => c.id === id);
+const prestador = id => S.prestadores.find(p => p.id === id);
+const orc = id => S.orcs.find(o => o.id === id);
+const serv = id => S.servicos.find(s => s.id === id);
+const itensDe = oid => S.itens.filter(i => i.orcamento_id === oid).sort((a,b) => a.ordem - b.ordem);
+const agendasDe = sid => S.agendas.filter(a => a.servico_id === sid).sort((a,b) => (a.data+(a.horario_inicio||'')).localeCompare(b.data+(b.horario_inicio||'')));
+const recebDe = sid => S.receb.filter(r => r.servico_id === sid);
+const vincDe = sid => S.vinc.filter(v => v.servico_id === sid);
+// Dia que conta na agenda: o serviço existe e não foi cancelado.
+const agAtiva = a => { const s = serv(a.servico_id); return !!s && s.status !== 'cancelado'; };
+const servAtivo = sid => { const s = serv(sid); return !!s && s.status !== 'cancelado'; };
+
+/* ═══ Regras de dinheiro ═════════════════════════════════════════════ */
+// Preço sugerido = material com margem + mão de obra, arredondado de 5 em 5.
+// É a conta que fechou o orçamento 653, linha a linha (215, 570, 135...).
+function sugerido(it){
+  const v = num(it.material_custo) * (1 + num(it.margem_material_pct)/100) + num(it.mao_obra);
+  return Math.round(v/5)*5;
+}
+// Custo interno (ajudante, alimentação) não vai para o cliente: conta pelo
+// que você paga, material + mão de obra da linha.
+function totaisOrc(oid){
+  const its = itensDe(oid);
+  const sv = its.filter(i => i.tipo === 'servico'), ci = its.filter(i => i.tipo === 'custo_interno');
+  const total = sv.reduce((s,i) => s + num(i.preco_cliente), 0);
+  const material = sv.reduce((s,i) => s + num(i.material_custo), 0);
+  const interno = ci.reduce((s,i) => s + num(i.material_custo) + num(i.mao_obra), 0);
+  const tempo = sv.reduce((s,i) => s + num(i.tempo_estimado_min), 0);
+  const lucro = total - material - interno;
+  return { total, material, interno, tempo, lucro, nServ:sv.length, porHora: tempo ? lucro/(tempo/60) : null };
+}
+function totaisServ(sid){
+  const s = serv(sid); const vs = vincDe(sid), rs = recebDe(sid);
+  const repasse = vs.reduce((t,v) => t + num(v.valor_repasse), 0);
+  const repPago = vs.filter(v => v.repasse_status === 'pago').reduce((t,v) => t + num(v.valor_repasse), 0);
+  const lancado = rs.reduce((t,r) => t + num(r.valor), 0);
+  const recebido = rs.filter(r => r.recebido_em).reduce((t,r) => t + num(r.valor), 0);
+  const lucro = num(s?.valor_cobrado) - num(s?.custo_material) - repasse;
+  return { repasse, repPago, lancado, recebido, aReceber: lancado - recebido, lucro };
+}
+const orcEditavel = o => o && (o.status === 'rascunho' || o.status === 'enviado');
+const orcVencido = o => o?.status === 'enviado' && o.emissao && addDias(o.emissao, num(o.validade_dias)) < hoje();
+const numOrc = o => o?.numero ? `${String(o.numero).padStart(3,'0')}/${o.ano}` : 'Rascunho';
+
+const ST_ORC = { rascunho:['Rascunho','b-gray'], enviado:['Enviado','b-blue'], aprovado:['Aprovado','b-green'],
+  recusado:['Recusado','b-red'], cancelado:['Cancelado','b-gray'] };
+const ST_SERV = { a_agendar:['A agendar','b-yel'], agendado:['Agendado','b-blue'], executado:['Executado','b-green'], cancelado:['Cancelado','b-gray'] };
+const badgeOrc = o => orcVencido(o) ? `<span class="badge b-red">Vencido</span>` : `<span class="badge ${ST_ORC[o.status]?.[1]}">${ST_ORC[o.status]?.[0]}</span>`;
+const badgeServ = s => `<span class="badge ${ST_SERV[s.status]?.[1]}">${ST_SERV[s.status]?.[0]}</span>`;
+
+/* ═══ Login ══════════════════════════════════════════════════════════ */
+$('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = $('l-btn'), err = $('login-err'); err.classList.add('hidden'); btn.disabled = true; btn.textContent = 'Entrando…';
+  try {
+    const r = await fetch(SB_URL + '/auth/v1/token?grant_type=password', {
+      method:'POST', headers:{'Content-Type':'application/json', apikey:SB_KEY},
+      body: JSON.stringify({ email:$('l-email').value.trim(), password:$('l-pass').value })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error_code === 'invalid_credentials' || d.error === 'invalid_grant' ? 'E-mail ou senha incorretos.' : (d.msg || d.error_description || 'Não foi possível entrar.'));
+    if (!d.expires_at) d.expires_at = Math.floor(Date.now()/1000) + (d.expires_in || 3600);
+    saveSess(d);
+    await start();
+  } catch(ex) { err.textContent = ex.message; err.classList.remove('hidden'); }
+  finally { btn.disabled = false; btn.textContent = 'Entrar'; }
+});
+
+async function start(){
+  loading(true);
+  try {
+    // O acesso é fechado no banco para um login só (função is_tdh). Para
+    // qualquer outro, as tabelas voltam vazias em vez de dar erro, então a
+    // config vazia é o sinal de "este login não tem acesso".
+    const cfg = await loadCfg();
+    if (!cfg) { await signOut(); const err = $('login-err');
+      err.textContent = 'Este login não tem acesso ao Trabalho de Homem.'; err.classList.remove('hidden'); return; }
+    await Promise.all([load(...Object.keys(TAB)), loadDiligencias()]);
+    $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+    buildNav();
+    if (!location.hash || location.hash === '#') location.replace('#/painel'); else render();
+  } catch(e) {
+    console.error(e);
+    if (!sess) onSignedOut(); else toast(e.message || 'Falha ao carregar.', true);
+  } finally { loading(false); }
+}
+async function signOut(){
+  try { if (sess?.access_token) await fetch(SB_URL + '/auth/v1/logout', { method:'POST', headers:{ apikey:SB_KEY, Authorization:'Bearer ' + sess.access_token } }); } catch(e){}
+  saveSess(null); onSignedOut();
+}
+function onSignedOut(){
+  saveSess(null); closeModal(); closePdf();
+  $('app').classList.add('hidden'); $('login').classList.remove('hidden');
+}
+
+/* ═══ Navegação ══════════════════════════════════════════════════════
+   Rotas no #hash para o botão "voltar" do Android funcionar como esperado. */
+const NAV = [
+  ['painel','home','Painel'], ['agenda','cal','Agenda'], ['orcamentos','file','Orçamentos'], ['servicos','wrench','Serviços'],
+];
+const NAV2 = [['prestadores','users','Prestadores'], ['clientes','user','Clientes'], ['config','cfg','Configurações']];
+function buildNav(){
+  $('tabs').innerHTML = NAV.map(([k,i,t]) => `<a href="#/${k}" data-k="${k}">${ic(i)}<span>${t}</span></a>`).join('')
+    + `<a href="#/mais" data-k="mais">${ic('more')}<span>Mais</span></a>`;
+  $('side').innerHTML = NAV.map(([k,i,t]) => `<a href="#/${k}" data-k="${k}">${ic(i)}${t}</a>`).join('')
+    + '<div class="sep"></div>' + NAV2.map(([k,i,t]) => `<a href="#/${k}" data-k="${k}">${ic(i)}${t}</a>`).join('')
+    + `<div class="sep"></div><a href="javascript:void 0" onclick="confirmSair()">${ic('logout')}Sair</a>`;
+  pintaOlho();
+}
+function go(h){ if (location.hash === h) render(); else location.hash = h; }
+window.addEventListener('hashchange', () => { closeModal(); render(); });
+
+function route(){
+  const p = location.hash.replace(/^#\/?/, '').split('/');
+  return { page:p[0] || 'painel', id:p[1], sub:p[2] };
+}
+const SECAO = { orc:'orcamentos', serv:'servicos', cliente:'clientes', mais:'mais' };
+function render(){
+  if ($('app').classList.contains('hidden')) return;
+  const r = route();
+  const sec = SECAO[r.page] || r.page;
+  const naMais = ['prestadores','clientes','config','mais','cliente'].includes(r.page);
+  document.querySelectorAll('#tabs a').forEach(a => a.classList.toggle('on', a.dataset.k === sec || (a.dataset.k === 'mais' && naMais)));
+  document.querySelectorAll('#side a').forEach(a => a.classList.toggle('on', a.dataset.k === sec));
+  const V = { painel:vPainel, agenda:vAgenda, orcamentos:vOrcamentos, orc:vOrc, servicos:vServicos, serv:vServ,
+    prestadores:vPrestadores, clientes:vClientes, cliente:vCliente, config:vConfig, mais:vMais };
+  const fn = V[r.page] || vPainel;
+  $('view').innerHTML = `<div class="wrap">${fn(r)}</div>`;
+  if (fn.after) fn.after(r);
+  if (r.page === 'orc' && r.sub === 'pdf') abrirPdf(r.id);
+  window.scrollTo(0, 0);
+}
+let _rerenderKeepScroll = () => { const y = window.scrollY; render(); window.scrollTo(0, y); };
+const rerender = () => _rerenderKeepScroll();
+
+/* ═══ Olho (ocultar valores) ═════════════════════════════════════════ */
+let oculto = false; try { oculto = localStorage.getItem('tdh_oculto') === '1'; } catch(e){}
+function pintaOlho(){ document.body.classList.toggle('oculto', oculto); $('eye-btn').innerHTML = ic(oculto ? 'eyeoff' : 'eye'); }
+function toggleOculto(){ oculto = !oculto; try { localStorage.setItem('tdh_oculto', oculto ? '1' : '0'); } catch(e){} pintaOlho(); }
+
+/* ═══ Modal ══════════════════════════════════════════════════════════ */
+function openModal(title, body){
+  $('sheet').innerHTML = `<div class="sheet-h"><h3>${esc(title)}</h3><button class="icon-btn" style="color:var(--text2)" onclick="closeModal()">${ic('x')}</button></div>${body}`;
+  $('modal').classList.remove('hidden');
+  const f = $('sheet').querySelector('input:not([type=hidden]),textarea,select'); if (f && matchMedia('(min-width:640px)').matches) f.focus();
+}
+function closeModal(){ $('modal').classList.add('hidden'); $('sheet').innerHTML = ''; }
+function confirmar(title, msg, okLabel, onOk, danger){
+  openModal(title, `<p style="color:var(--text2);line-height:1.45;margin-bottom:16px">${msg}</p>
+    <div class="btns"><button class="btn ${danger ? 'btn-d' : 'btn-n'}" id="cf-ok">${esc(okLabel)}</button>
+    <button class="btn btn-g" onclick="closeModal()">Voltar</button></div>`);
+  $('cf-ok').onclick = async () => { closeModal(); await onOk(); };
+}
+const fv = id => $(id)?.value ?? '';
+
+/* ═══════════════════════════════════════════════════════════════════
+   PAINEL
+   ═══════════════════════════════════════════════════════════════════ */
+function vPainel(){
+  const h = hoje(), mes = h.slice(0,7);
+  const pend = S.receb.filter(r => !r.recebido_em && servAtivo(r.servico_id));
+  const atras = pend.filter(r => r.previsao && r.previsao < h);
+  const aReceber = pend.reduce((t,r) => t + num(r.valor), 0);
+  const repPend = S.vinc.filter(v => v.repasse_status !== 'pago' && servAtivo(v.servico_id));
+  const repTot = repPend.reduce((t,v) => t + num(v.valor_repasse), 0);
+  const abertos = S.orcs.filter(o => o.status === 'enviado');
+  const abertosTot = abertos.reduce((t,o) => t + totaisOrc(o.id).total, 0);
+  const recMes = S.receb.filter(r => (r.recebido_em||'').startsWith(mes)).reduce((t,r) => t + num(r.valor), 0);
+  const repMes = S.vinc.filter(v => (v.repassado_em||'').startsWith(mes)).reduce((t,v) => t + num(v.valor_repasse), 0);
+  const prox = S.agendas.filter(a => a.data >= h && a.data <= addDias(h, 7) && agAtiva(a));
+  const dil7 = S.dil.filter(d => d.data >= h && d.data <= addDias(h, 7));
+  const saud = new Date().getHours() < 12 ? 'Bom dia' : new Date().getHours() < 18 ? 'Boa tarde' : 'Boa noite';
+  const linhas = [...prox.map(a => ({ k:'tdh', data:a.data, ini:a.horario_inicio, a })), ...dil7.map(d => ({ k:'dil', data:d.data, ini:d.horario, d }))]
+    .sort((x,y) => (x.data + (x.ini||'')).localeCompare(y.data + (y.ini||'')));
+  return `
+  <div class="pg-head"><div><h2 class="pg">${saud}, Esdras</h2><div class="pg-sub">${fmtDataLonga(h)}</div></div></div>
+  <div class="grid2">
+    <a class="kpi hi" href="#/servicos"><div class="k">A receber</div><div class="v">${m$(aReceber)}</div>
+      <div class="s">${pend.length} lançamento(s)${atras.length ? ` · <b style="color:#FFB4B4">${atras.length} atrasado(s)</b>` : ''}</div></a>
+    <a class="kpi" href="#/servicos"><div class="k">Repasses a pagar</div><div class="v">${m$(repTot)}</div><div class="s">${repPend.length} prestador(es)</div></a>
+    <a class="kpi" href="#/orcamentos"><div class="k">Orçamentos em aberto</div><div class="v">${m$(abertosTot)}</div><div class="s">${abertos.length} aguardando resposta</div></a>
+    <div class="kpi"><div class="k">Recebido em ${MESES[+mes.slice(5)-1]}</div><div class="v">${m$(recMes)}</div><div class="s">repassado ${m$(repMes)}</div></div>
+  </div>
+  <div class="btns" style="margin-top:12px">
+    <button class="btn btn-p" style="flex:1" onclick="novoOrcamento()">${ic('plus')} Orçamento</button>
+    <button class="btn btn-s" style="flex:1" onclick="modalNovoServico()">${ic('plus')} Serviço direto</button>
+  </div>
+  <div class="sec">Próximos 7 dias <a class="lnk" href="#/agenda">Agenda</a></div>
+  <div class="list">${linhas.length ? linhas.map(rowAgendaMista).join('') : '<div class="empty">Nada marcado nos próximos 7 dias.</div>'}</div>
+  ${atras.length ? `<div class="sec">Recebimentos atrasados</div><div class="list">${atras.map(r => { const s = serv(r.servico_id);
+    return `<a class="row" href="#/serv/${s.id}"><div class="main"><div class="t">${esc(s.descricao)}</div>
+      <div class="m">${esc(r.descricao)} · previsto ${fmtData(r.previsao)}</div></div><div class="r val" style="color:var(--red)">${m$(r.valor)}</div></a>`; }).join('')}</div>` : ''}
+  ${abertos.length ? `<div class="sec">Aguardando o cliente</div><div class="list">${abertos.map(rowOrc).join('')}</div>` : ''}
+  ${!S.dilOk ? `<div class="warn" style="margin-top:14px">${ic('alert')}<span>Não consegui ler as diligências agora. A agenda mostra só os serviços do Trabalho de Homem.</span></div>` : ''}`;
+}
+function fmtDataLonga(s){ const d = parseISO(s); return `${['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'][d.getDay()]}, ${d.getDate()} de ${MESES[d.getMonth()]}`; }
+function datePill(s){ const d = parseISO(s); return `<div class="date-pill"><b>${d.getDate()}</b><span>${DSEM[d.getDay()]}</span></div>`; }
+function rowAgendaMista(x){
+  if (x.k === 'tdh') { const a = x.a, s = serv(a.servico_id), c = cliente(s?.cliente_id);
+    return `<a class="row tag-tdh" href="#/serv/${s.id}">${datePill(a.data)}<div class="main"><div class="t">${esc(s.descricao)}</div>
+      <div class="m">${horaFaixa(a)}${c ? ' · ' + esc(c.nome) : ''}${s.bairro ? ' · ' + esc(s.bairro) : ''}</div></div>${badgeServ(s)}</a>`; }
+  const d = x.d;
+  return `<div class="row tag-dil" style="cursor:default">${datePill(d.data)}<div class="main"><div class="t">${esc(d.descricao || 'Diligência')}</div>
+    <div class="m">${d.horario ? hhmm(d.horario) : 'Sem horário'}${d.local ? ' · ' + esc(d.local) : ''}</div></div><span class="badge b-navy">Diligência</span></div>`;
+}
+const horaFaixa = a => a.horario_inicio ? hhmm(a.horario_inicio) + (a.horario_fim ? '–' + hhmm(a.horario_fim) : '') : 'Dia inteiro';
+
+/* ═══════════════════════════════════════════════════════════════════
+   AGENDA
+   ═══════════════════════════════════════════════════════════════════ */
+let calMes = null, calSel = null;
+function vAgenda(r){
+  if (r.id && /^\d{4}-\d{2}$/.test(r.id)) calMes = r.id;
+  if (!calMes) calMes = hoje().slice(0,7);
+  if (!calSel || !calSel.startsWith(calMes)) calSel = calMes === hoje().slice(0,7) ? hoje() : calMes + '-01';
+  const [y, m] = calMes.split('-').map(Number);
+  const first = new Date(y, m-1, 1), startDow = first.getDay(), dias = new Date(y, m, 0).getDate();
+  const ext = blqExternos();
+  const porDia = {};
+  const add = (d, k) => { (porDia[d] = porDia[d] || new Set()).add(k); };
+  S.agendas.forEach(a => { if (agAtiva(a)) add(a.data, 'tdh'); });
+  S.dil.forEach(d => add(d.data, 'dil')); ext.forEach(b => add(String(b.data).slice(0,10), 'blq'));
+  let cells = DSEM.map(d => `<div class="wd">${d}</div>`).join('');
+  const total = Math.ceil((startDow + dias)/7)*7;
+  for (let i = 0; i < total; i++) {
+    const d = new Date(y, m-1, 1 - startDow + i), ds = iso(d), out = d.getMonth() !== m-1;
+    const k = porDia[ds] || new Set();
+    cells += `<button class="${out ? 'out ' : ''}${ds === hoje() ? 'today ' : ''}${ds === calSel ? 'sel' : ''}" onclick="calPick('${ds}')">
+      <b>${d.getDate()}</b><span class="dots">${k.has('tdh') ? '<i class="dot d-tdh"></i>' : ''}${k.has('dil') ? '<i class="dot d-dil"></i>' : ''}${k.has('blq') ? '<i class="dot d-blq"></i>' : ''}</span></button>`;
+  }
+  const prev = iso(new Date(y, m-2, 1)).slice(0,7), next = iso(new Date(y, m, 1)).slice(0,7);
+  return `
+  <div class="pg-head"><h2 class="pg">Agenda</h2>
+    <button class="btn btn-sm btn-s" onclick="calHoje()">Hoje</button></div>
+  <div class="card">
+    <div class="cal-nav"><button class="icon-btn" onclick="go('#/agenda/${prev}')">${ic('left')}</button>
+      <h3>${MESES[m-1]} ${y}</h3><button class="icon-btn" onclick="go('#/agenda/${next}')">${ic('right')}</button></div>
+    <div class="cal">${cells}</div>
+    <div class="legend"><span><i class="dot d-tdh"></i>Trabalho de Homem</span><span><i class="dot d-dil"></i>Suas diligências</span><span><i class="dot d-blq"></i>Bloqueio</span></div>
+  </div>
+  <div id="cal-dia">${diaHtml(calSel)}</div>`;
+}
+function calPick(ds){
+  if (!ds.startsWith(calMes)) { calSel = ds; go('#/agenda/' + ds.slice(0,7)); return; }
+  calSel = ds;
+  document.querySelectorAll('.cal button').forEach(b => b.classList.remove('sel'));
+  const btn = [...document.querySelectorAll('.cal button')].find(b => b.getAttribute('onclick') === `calPick('${ds}')`);
+  if (btn) btn.classList.add('sel');
+  $('cal-dia').innerHTML = diaHtml(ds);
+}
+function calHoje(){ calSel = hoje(); go('#/agenda/' + hoje().slice(0,7)); }
+function diaHtml(ds){
+  const ag = S.agendas.filter(a => a.data === ds && agAtiva(a));
+  const dl = S.dil.filter(d => d.data === ds), bl = blqExternos().filter(b => String(b.data).slice(0,10) === ds);
+  const itens = [
+    ...ag.map(a => ({ t:a.horario_inicio || '', h:() => { const s = serv(a.servico_id), c = cliente(s.cliente_id);
+      return `<a class="row tag-tdh" href="#/serv/${s.id}"><div class="main"><div class="t">${esc(s.descricao)}</div>
+      <div class="m">${horaFaixa(a)}${c ? ' · ' + esc(c.nome) : ''}${s.endereco ? ' · ' + esc(s.endereco) : ''}</div></div>${badgeServ(s)}</a>`; } })),
+    ...dl.map(d => ({ t:d.horario || '', h:() => `<div class="row tag-dil" style="cursor:default"><div class="main"><div class="t">${esc(d.descricao || 'Diligência')}</div>
+      <div class="m">${d.horario ? hhmm(d.horario) : 'Sem horário'}${d.local ? ' · ' + esc(d.local) : ''}</div></div><span class="badge b-navy">Diligência</span></div>` })),
+    ...bl.map(b => ({ t:b.horario_inicio || '', h:() => `<div class="row tag-blq" style="cursor:default"><div class="main"><div class="t">${esc(b.motivo || 'Bloqueio')}</div>
+      <div class="m">${b.horario_inicio ? hhmm(b.horario_inicio) + '–' + hhmm(b.horario_fim) : 'Dia inteiro'}</div></div><span class="badge b-red">Bloqueio</span></div>` })),
+  ].sort((a,b) => String(a.t).localeCompare(String(b.t)));
+  return `<div class="sec">${fmtDataLonga(ds)}<button class="lnk" onclick="modalNovoServico('${ds}')">+ Serviço neste dia</button></div>
+    <div class="list">${itens.length ? itens.map(i => i.h()).join('') : '<div class="empty">Dia livre.</div>'}</div>`;
+}
+
+/* Conflitos: outros serviços no mesmo horário, suas diligências do dia e
+   bloqueios seus. Só avisa, não impede: quem decide é você. */
+function conflitos(data, ini, fim, ignorarAgendaId){
+  const av = [];
+  const i0 = toMin(ini), f0 = toMin(fim) ?? (i0 != null ? i0 + 60 : null);
+  const sobrepoe = (a1, b1, a2, b2) => a1 == null || a2 == null ? true : a1 < b2 && a2 < b1;
+  S.agendas.filter(a => a.data === data && a.id !== ignorarAgendaId && agAtiva(a)).forEach(a => {
+    const ai = toMin(a.horario_inicio), af = toMin(a.horario_fim) ?? (ai != null ? ai + 60 : null);
+    if (sobrepoe(i0, f0, ai, af)) av.push(`Já tem <b>${esc(serv(a.servico_id).descricao)}</b> ${a.horario_inicio ? 'das ' + horaFaixa(a) : 'o dia inteiro'}.`);
+  });
+  S.dil.filter(d => d.data === data).forEach(d => {
+    av.push(`Você tem a diligência <b>${esc(d.descricao || '')}</b> ${d.horario ? 'às ' + hhmm(d.horario) : 'neste dia (sem horário)'}.`);
+  });
+  blqExternos().filter(b => String(b.data).slice(0,10) === data).forEach(b => {
+    const bi = toMin(b.horario_inicio), bf = toMin(b.horario_fim);
+    if (sobrepoe(i0, f0, bi, bf)) av.push(`Bloqueio na agenda: <b>${esc(b.motivo || 'indisponível')}</b> ${b.horario_inicio ? hhmm(b.horario_inicio) + '–' + hhmm(b.horario_fim) : '(dia inteiro)'}.`);
+  });
+  return av;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ORÇAMENTOS — lista
+   ═══════════════════════════════════════════════════════════════════ */
+let orcFiltro = 'abertos';
+function rowOrc(o){
+  const t = totaisOrc(o.id), c = cliente(o.cliente_id);
+  return `<a class="row" href="#/orc/${o.id}"><div class="main"><div class="t">${o.numero ? 'Nº ' + numOrc(o) + ' · ' : ''}${esc(o.cliente_nome || c?.nome || 'Sem cliente')}</div>
+    <div class="m">${badgeOrc(o)} ${o.emissao ? 'emitido ' + fmtData(o.emissao) : 'criado ' + fmtData(String(o.created_at).slice(0,10))} · ${t.nServ} item(ns)</div></div>
+    <div class="r val">${m$(t.total)}</div></a>`;
+}
+function vOrcamentos(){
+  const F = { abertos:o => o.status === 'rascunho' || o.status === 'enviado', aprovados:o => o.status === 'aprovado',
+    outros:o => o.status === 'recusado' || o.status === 'cancelado', todos:() => true };
+  const lista = S.orcs.filter(F[orcFiltro]);
+  return `
+  <div class="pg-head"><div><h2 class="pg">Orçamentos</h2><div class="pg-sub">Próximo número: ${proxNumero()}</div></div></div>
+  <div class="seg" style="margin-bottom:12px">${[['abertos','Em aberto'],['aprovados','Aprovados'],['outros','Recusados'],['todos','Todos']]
+    .map(([k,t]) => `<button class="${orcFiltro === k ? 'on' : ''}" onclick="orcFiltro='${k}';rerender()">${t}</button>`).join('')}</div>
+  <div class="list">${lista.length ? lista.map(rowOrc).join('') : '<div class="empty">Nenhum orçamento aqui.</div>'}</div>
+  <div style="height:64px"></div><button class="btn btn-p fab" onclick="novoOrcamento()">${ic('plus')} Novo orçamento</button>`;
+}
+// Só informativo: o número real sai da sequence do banco na emissão.
+function proxNumero(){ const n = S.orcs.map(o => num(o.numero)).filter(Boolean); return (n.length ? Math.max(...n) + 1 : 654) + '/' + new Date().getFullYear(); }
+
+let abrirItemAoEntrar = null;
+async function novoOrcamento(cid){
+  const c = S.cfg || {}, cl = cid ? cliente(cid) : null;
+  const o = await act(async () => {
+    const [novo] = await db.ins('tdh_orcamentos', {
+      status:'rascunho', validade_dias:c.validade_dias ?? 15, garantia_dias:c.garantia_dias ?? 90,
+      cliente_id:cl?.id || null, cliente_nome:cl?.nome || null,
+      local_servico:cl ? [cl.endereco, cl.bairro, cl.cidade].filter(Boolean).join(', ') || null : null,
+      // Os textos são copiados para o orçamento: mudar o padrão depois não
+      // altera um orçamento que já foi para o cliente.
+      texto_execucao:c.texto_execucao, texto_garantia:c.texto_garantia, texto_imprevistos:c.texto_imprevistos,
+    });
+    S.orcs.unshift(novo); return novo;
+  });
+  // O modal abre depois que a tela do orçamento estiver montada. Abrir
+  // antes faz a troca de tela fechar o modal na hora.
+  if (o) { abrirItemAoEntrar = o.id; go('#/orc/' + o.id); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ORÇAMENTO — editor
+   Salva campo a campo ao sair dele (evento change): você monta o
+   orçamento aos poucos, no celular, e nada se perde se fechar o app.
+   ═══════════════════════════════════════════════════════════════════ */
+function vOrc(r){
+  const o = orc(r.id);
+  if (!o) return `<a class="back" href="#/orcamentos">${ic('left')} Orçamentos</a><div class="card empty">Orçamento não encontrado.</div>`;
+  const ed = orcEditavel(o), its = itensDe(o.id), c = cliente(o.cliente_id);
+  const s = o.servico_id ? serv(o.servico_id) : null;
+  const dis = ed ? '' : 'disabled';
+  let n = 0;
+  return `
+  <a class="back" href="#/orcamentos">${ic('left')} Orçamentos</a>
+  <div class="pg-head"><div><h2 class="pg">${o.numero ? 'Orçamento ' + numOrc(o) : 'Novo orçamento'}</h2>
+    <div class="pg-sub">${badgeOrc(o)} ${o.emissao ? 'Emitido ' + fmtData(o.emissao) + ' · válido até ' + fmtData(addDias(o.emissao, num(o.validade_dias))) : 'Rascunho: o número sai quando você emitir'}</div></div></div>
+  ${!ed ? `<div class="lock-note">${ic('lock')}<span>Orçamento ${ST_ORC[o.status][0].toLowerCase()}: não dá mais para editar. Para mudar algo, use <b>Duplicar</b>.</span></div>` : ''}
+  ${o.status === 'enviado' ? `<div class="lock-note">${ic('alert')}<span>Já foi para o cliente. Se mudar algo, mande o PDF de novo.</span></div>` : ''}
+  ${s ? `<a class="card row" style="margin-bottom:12px" href="#/serv/${s.id}"><div class="main"><div class="t">Virou serviço</div><div class="m">${esc(s.descricao)}</div></div>${badgeServ(s)}${ic('right')}</a>` : ''}
+
+  <div class="card">
+    <div class="field"><label>Cliente</label>
+      <div style="display:flex;gap:8px"><select class="in" id="o-cli" ${dis} onchange="orcSetCliente('${o.id}', this.value)">
+        <option value="">— escolher —</option>${S.clientes.map(x => `<option value="${x.id}" ${x.id === o.cliente_id ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}
+      </select>${ed ? `<button class="btn btn-s btn-sm" onclick="modalCliente(null, cid => orcSetCliente('${o.id}', cid))">${ic('plus')}</button>` : ''}</div>
+      ${!o.cliente_id && o.cliente_nome ? `<div class="hint">No documento: ${esc(o.cliente_nome)}</div>` : ''}</div>
+    <div class="field"><label>Local do serviço</label>
+      <input class="in" data-o="local_servico" value="${esc(o.local_servico || '')}" ${dis} placeholder="Endereço onde vai ser feito"></div>
+    <div class="field"><label>Subtítulo no documento</label>
+      <input class="in" data-o="subtitulo" value="${esc(o.subtitulo || '')}" ${dis}></div>
+  </div>
+
+  <div class="sec">Itens <span style="letter-spacing:0;text-transform:none;font-family:Barlow;font-weight:500">${its.filter(i => i.tipo === 'servico').length} serviço(s)</span></div>
+  <div id="itens">${its.length ? its.map(it => itemHtml(it, it.tipo === 'servico' ? ++n : '·', ed)).join('') : '<div class="card empty">Nenhum item ainda. Toque em <b>Adicionar item</b>.</div>'}</div>
+  ${ed ? `<div class="btns"><button class="btn btn-n" style="flex:1" onclick="modalItem('${o.id}')">${ic('plus')} Adicionar item</button>
+    <button class="btn btn-s" onclick="modalItem('${o.id}', 'custo_interno')">${ic('plus')} Custo interno</button></div>` : ''}
+
+  <div class="sec">Condições</div>
+  <div class="card">
+    <div class="f3">
+      <div class="field"><label>Validade (dias)</label><input class="in num" inputmode="numeric" data-o="validade_dias" data-kind="int" value="${esc(o.validade_dias)}" ${dis}></div>
+      <div class="field"><label>Garantia (dias)</label><input class="in num" inputmode="numeric" data-o="garantia_dias" data-kind="int" value="${esc(o.garantia_dias)}" ${dis}></div>
+      <div class="field"><label>Entrada (R$)</label><input class="in num" inputmode="decimal" data-o="entrada_valor" data-kind="money" value="${moneyIn(o.entrada_valor)}" ${dis} placeholder="0,00"></div>
+    </div>
+    ${ed ? `<div class="sug" style="margin:-4px 0 10px" id="ent-sug"></div>` : ''}
+    <div class="field"><label>Execução</label><textarea class="in" data-o="texto_execucao" ${dis}>${esc(o.texto_execucao || '')}</textarea></div>
+    <div class="field"><label>Garantia</label><textarea class="in" data-o="texto_garantia" ${dis}>${esc(o.texto_garantia || '')}</textarea>
+      <div class="hint">{garantia} vira o número de dias.</div></div>
+    <div class="field"><label>Imprevistos e serviços adicionais</label><textarea class="in" data-o="texto_imprevistos" ${dis}>${esc(o.texto_imprevistos || '')}</textarea></div>
+    <div class="field" style="margin-bottom:0"><label>Anotações internas (não saem no PDF)</label>
+      <textarea class="in" data-o="observacoes_internas">${esc(o.observacoes_internas || '')}</textarea></div>
+  </div>
+
+  <div class="sec">Ações</div>
+  <div class="btns">
+    <button class="btn btn-n" onclick="go('#/orc/${o.id}/pdf')">${ic('file')} Ver PDF</button>
+    ${o.status === 'rascunho' ? `<button class="btn btn-p" onclick="emitirOrc('${o.id}')">${ic('send')} Emitir (gera o número)</button>` : ''}
+    ${o.status === 'enviado' ? `<button class="btn btn-p" onclick="aprovarOrc('${o.id}')">${ic('check')} Cliente aprovou</button>
+      <button class="btn btn-s" onclick="mudaStatusOrc('${o.id}','recusado')">Recusou</button>` : ''}
+    <button class="btn btn-s" onclick="duplicarOrc('${o.id}')">${ic('copy')} Duplicar</button>
+    ${o.status === 'rascunho' ? `<button class="btn btn-d" onclick="excluirOrc('${o.id}')">${ic('trash')} Excluir</button>` : ''}
+    ${o.status === 'enviado' ? `<button class="btn btn-g" onclick="mudaStatusOrc('${o.id}','cancelado')">Cancelar</button>` : ''}
+    ${o.status === 'recusado' || o.status === 'cancelado' ? `<button class="btn btn-g" onclick="mudaStatusOrc('${o.id}','enviado')">Reabrir</button>` : ''}
+    ${o.status === 'aprovado' && !o.servico_id ? `<button class="btn btn-p" onclick="aprovarOrc('${o.id}')">${ic('wrench')} Criar o serviço de novo</button>` : ''}
+  </div>
+  <div id="totbar" class="totbar"></div>`;
+}
+vOrc.after = r => { const o = orc(r.id); if (!o) return; bindOrcInputs(o); pintaTotais(o.id);
+  if (abrirItemAoEntrar === o.id && r.sub !== 'pdf') { abrirItemAoEntrar = null; modalItem(o.id); } };
+
+function itemHtml(it, n, ed){
+  const dis = ed ? '' : 'disabled', id = it.id;
+  if (it.tipo === 'custo_interno') return `
+  <div class="item interno" data-item="${id}">
+    <div class="item-h"><div class="item-n">${ic('lock')}</div><div class="sp" style="font-size:12.5px;color:var(--text3);font-weight:600">Custo interno · não aparece para o cliente</div>${ed ? itemBtns(it) : ''}</div>
+    <div class="field"><label>O que é</label><input class="in" data-i="titulo" value="${esc(it.titulo)}" ${dis} placeholder="Ex.: ajudante sábado, alimentação"></div>
+    <div class="f2"><div class="field" style="margin:0"><label>Material / despesa (R$)</label><input class="in num money" inputmode="decimal" data-i="material_custo" data-kind="money" value="${moneyIn(it.material_custo)}" ${dis}></div>
+      <div class="field" style="margin:0"><label>Pagamento a pessoa (R$)</label><input class="in num money" inputmode="decimal" data-i="mao_obra" data-kind="money" value="${moneyIn(it.mao_obra)}" ${dis}></div></div>
+  </div>`;
+  const sug = sugerido(it), manual = num(it.preco_cliente) !== sug;
+  return `
+  <div class="item" data-item="${id}">
+    <div class="item-h"><div class="item-n">${n}</div><div class="sp lbl">Item ${n}</div>${ed ? itemBtns(it) : ''}</div>
+    <div class="field"><input class="in" style="font-weight:700" data-i="titulo" value="${esc(it.titulo)}" ${dis} placeholder="Serviço"></div>
+    <div class="field"><label>Descrição para o cliente</label><textarea class="in" style="min-height:54px" data-i="descricao_cliente" ${dis} placeholder="O que está incluso">${esc(it.descricao_cliente || '')}</textarea></div>
+    <div class="f2">
+      <div class="field"><label>Tempo</label><input class="in num" data-i="tempo_estimado_min" data-kind="tempo" value="${esc(fmtTempo(it.tempo_estimado_min))}" ${dis} placeholder="1h30"></div>
+      <div class="field"><label>Margem material %</label><input class="in num" inputmode="decimal" data-i="margem_material_pct" data-kind="pct" value="${esc(num(it.margem_material_pct))}" ${dis}></div>
+      <div class="field"><label>Material — custo (R$)</label><input class="in num money" inputmode="decimal" data-i="material_custo" data-kind="money" value="${moneyIn(it.material_custo)}" ${dis} placeholder="0,00"></div>
+      <div class="field"><label>Mão de obra (R$)</label><input class="in num money" inputmode="decimal" data-i="mao_obra" data-kind="money" value="${moneyIn(it.mao_obra)}" ${dis} placeholder="0,00"></div>
+    </div>
+    <div class="price-box"><span class="lbl" style="flex:1">Preço ao cliente</span>
+      <input class="in num" style="width:150px" inputmode="decimal" data-i="preco_cliente" data-kind="money" value="${moneyIn(it.preco_cliente)}" ${dis}></div>
+    <div class="sug" data-sug="${id}">${sugHtml(it)}</div>
+  </div>`;
+}
+function sugHtml(it){
+  const sug = sugerido(it), p = num(it.preco_cliente);
+  if (p === sug) return `<span>Preço = material + ${num(it.margem_material_pct)}% + mão de obra, arredondado.</span>`;
+  return `<span>Sugerido: <b class="money">${money(sug)}</b> · você definiu outro valor.</span>${orcEditavel(orc(it.orcamento_id)) ? `<button onclick="usarSugerido('${it.id}')">Usar sugerido</button>` : ''}`;
+}
+function itemBtns(it){
+  return `<button class="icon-btn" style="width:34px;height:34px;color:var(--text3)" onclick="moveItem('${it.id}',-1)">${ic('up')}</button>
+    <button class="icon-btn" style="width:34px;height:34px;color:var(--text3)" onclick="moveItem('${it.id}',1)">${ic('down')}</button>
+    <button class="icon-btn" style="width:34px;height:34px;color:var(--red)" onclick="excluirItem('${it.id}')">${ic('trash')}</button>`;
+}
+function pintaTotais(oid){
+  const t = totaisOrc(oid), bar = $('totbar'); if (!bar) return;
+  bar.innerHTML = `<div class="big"><span>Total ao cliente</span><b class="money">${money(t.total)}</b></div>
+    <div class="det"><div>Material<b class="money">${money(t.material)}</b></div><div>Custos internos<b class="money">${money(t.interno)}</b></div>
+    <div>Seu lucro<b class="money" style="color:${t.lucro < 0 ? '#FFB4B4' : 'var(--yel)'}">${money(t.lucro)}</b></div>
+    <div>Tempo<b>${fmtTempo(t.tempo) || '—'}</b></div><div>Por hora<b class="money">${t.porHora != null ? money(t.porHora) : '—'}</b></div>
+    <div>Margem<b>${t.total ? Math.round(t.lucro/t.total*100) + '%' : '—'}</b></div></div>`;
+  const es = $('ent-sug');
+  if (es) { const o = orc(oid);
+    // Entrada que cobre o que sai do seu bolso antes do serviço: material
+    // e custos internos, arredondado para cima de 50 em 50.
+    const sug = Math.ceil((t.material + t.interno)/50)*50;
+    es.innerHTML = sug > 0 && num(o.entrada_valor) !== sug
+      ? `<span>Para cobrir material e custos: <b class="money">${money(sug)}</b></span><button onclick="setEntrada('${oid}', ${sug})">Usar</button>` : ''; }
+}
+
+function bindOrcInputs(o){
+  const view = $('view');
+  view.querySelectorAll('[data-o]').forEach(el => {
+    el.addEventListener('change', () => salvarCampoOrc(o.id, el));
+  });
+  view.querySelectorAll('[data-item]').forEach(box => {
+    const it = S.itens.find(i => i.id === box.dataset.item); if (!it) return;
+    box.querySelectorAll('[data-i]').forEach(el => {
+      el.addEventListener('input', () => itemInput(it, el, box));
+      el.addEventListener('change', () => itemChange(it, el, box));
+    });
+  });
+}
+function lerCampo(el){
+  const k = el.dataset.kind;
+  if (k === 'money') return parseMoney(el.value);
+  if (k === 'int') return Math.max(0, parseInt(onlyDigits(el.value) || '0', 10));
+  if (k === 'pct') return parseMoney(el.value);
+  if (k === 'tempo') return parseTempo(el.value);
+  return el.value.trim() || null;
+}
+async function salvarCampoOrc(oid, el){
+  const o = orc(oid), f = el.dataset.o, v = lerCampo(el);
+  if (f === 'entrada_valor') el.value = moneyIn(v);
+  o[f] = v;
+  if (f === 'entrada_valor' || f === 'validade_dias') pintaTotais(oid);
+  try { await db.upd('tdh_orcamentos', eqId(oid), { [f]: v }); } catch(e) { toast('Não salvou: ' + e.message, true); }
+}
+// Enquanto digita: recalcula preço sugerido e totais na tela, sem gravar.
+// Se o preço estava igual ao sugerido, ele acompanha; se você digitou um
+// preço próprio, ele fica parado.
+function itemInput(it, el, box){
+  const f = el.dataset.i;
+  if (f === 'titulo' || f === 'descricao_cliente') return;
+  if (f === 'tempo_estimado_min') { it.tempo_estimado_min = parseTempo(el.value); pintaTotais(it.orcamento_id); return; }
+  const antes = sugerido(it), acompanhava = num(it.preco_cliente) === antes;
+  it[f] = lerCampo(el);
+  if (it.tipo === 'servico' && f !== 'preco_cliente' && acompanhava) {
+    it.preco_cliente = sugerido(it);
+    const pi = box.querySelector('[data-i="preco_cliente"]'); if (pi) pi.value = moneyIn(it.preco_cliente);
+  }
+  const sg = box.querySelector('[data-sug]'); if (sg) sg.innerHTML = sugHtml(it);
+  pintaTotais(it.orcamento_id);
+}
+async function itemChange(it, el, box){
+  const f = el.dataset.i;
+  const patch = {};
+  if (f === 'titulo') { if (!el.value.trim()) { el.value = it.titulo; return; } patch.titulo = it.titulo = el.value.trim(); }
+  else if (f === 'descricao_cliente') patch.descricao_cliente = it.descricao_cliente = el.value.trim() || null;
+  else if (f === 'tempo_estimado_min') { patch.tempo_estimado_min = it.tempo_estimado_min = parseTempo(el.value); el.value = fmtTempo(it.tempo_estimado_min); }
+  else { patch[f] = it[f] = lerCampo(el); if (el.dataset.kind === 'money') el.value = moneyIn(it[f]);
+    // O preço pode ter acompanhado a mudança: grava junto.
+    if (it.tipo === 'servico' && f !== 'preco_cliente') patch.preco_cliente = num(it.preco_cliente); }
+  try { await db.upd('tdh_orcamento_itens', eqId(it.id), patch); } catch(e) { toast('Não salvou: ' + e.message, true); }
+}
+async function usarSugerido(iid){
+  const it = S.itens.find(i => i.id === iid); it.preco_cliente = sugerido(it);
+  await act(() => db.upd('tdh_orcamento_itens', eqId(iid), { preco_cliente: it.preco_cliente }));
+  rerender();
+}
+async function setEntrada(oid, v){ const o = orc(oid); o.entrada_valor = v;
+  await act(() => db.upd('tdh_orcamentos', eqId(oid), { entrada_valor: v })); rerender(); }
+async function orcSetCliente(oid, cid){
+  const o = orc(oid), c = cliente(cid);
+  const patch = { cliente_id: cid || null, cliente_nome: c?.nome || null };
+  // O endereço do cliente entra como local só se o campo estava vazio.
+  if (c?.endereco && !o.local_servico) patch.local_servico = [c.endereco, c.bairro, c.cidade].filter(Boolean).join(', ');
+  await act(async () => { const [n] = await db.upd('tdh_orcamentos', eqId(oid), patch); Object.assign(o, n); });
+  rerender();
+}
+
+function modalItem(oid, tipo = 'servico'){
+  const m = S.cfg?.margem_material_pct ?? 15;
+  if (tipo === 'custo_interno') {
+    openModal('Custo interno', `<p class="hint" style="color:var(--text3);font-size:13px;margin:-6px 0 12px">Não aparece para o cliente nem soma no total. Entra só na sua conta de lucro.</p>
+      <div class="field"><label>O que é</label><input class="in" id="ni-tit" placeholder="Ex.: ajudante sábado"></div>
+      <div class="f2"><div class="field"><label>Material / despesa (R$)</label><input class="in num" id="ni-mat" inputmode="decimal"></div>
+        <div class="field"><label>Pagamento a pessoa (R$)</label><input class="in num" id="ni-mo" inputmode="decimal"></div></div>
+      <button class="btn btn-p btn-w" onclick="criarItem('${oid}','custo_interno')">Adicionar</button>`);
+    return;
+  }
+  openModal('Novo item', `
+    <div class="field"><label>Serviço</label><input class="in" id="ni-tit" placeholder="Ex.: Troca de chuveiro"></div>
+    <div class="field"><label>Descrição para o cliente</label><textarea class="in" id="ni-desc" style="min-height:54px" placeholder="Fornecimento e instalação de…"></textarea></div>
+    <div class="f2"><div class="field"><label>Tempo</label><input class="in num" id="ni-tempo" placeholder="1h30"></div>
+      <div class="field"><label>Margem material %</label><input class="in num" id="ni-marg" inputmode="decimal" value="${m}"></div>
+      <div class="field"><label>Material — custo (R$)</label><input class="in num" id="ni-mat" inputmode="decimal" oninput="niPreview()"></div>
+      <div class="field"><label>Mão de obra (R$)</label><input class="in num" id="ni-mo" inputmode="decimal" oninput="niPreview()"></div></div>
+    <div class="price-box" style="margin-bottom:14px"><span class="lbl" style="flex:1">Preço ao cliente (sugerido)</span><b class="cond money" id="ni-prev" style="font-size:22px">R$ 0,00</b></div>
+    <button class="btn btn-p btn-w" onclick="criarItem('${oid}','servico')">Adicionar</button>`);
+  $('ni-marg').addEventListener('input', niPreview);
+}
+function niPreview(){ $('ni-prev').textContent = money(sugerido({ material_custo:parseMoney(fv('ni-mat')), mao_obra:parseMoney(fv('ni-mo')), margem_material_pct:parseMoney(fv('ni-marg')) })); }
+async function criarItem(oid, tipo){
+  const tit = fv('ni-tit').trim(); if (!tit) return toast('Diga o que é o item.', true);
+  const its = itensDe(oid);
+  const row = { orcamento_id:oid, tipo, titulo:tit, ordem:(its.length ? Math.max(...its.map(i => i.ordem)) : 0) + 1,
+    material_custo:parseMoney(fv('ni-mat')), mao_obra:parseMoney(fv('ni-mo')) };
+  if (tipo === 'servico') {
+    row.descricao_cliente = fv('ni-desc').trim() || null; row.tempo_estimado_min = parseTempo(fv('ni-tempo'));
+    row.margem_material_pct = parseMoney(fv('ni-marg')); row.preco_cliente = sugerido(row);
+  } else { row.margem_material_pct = 0; row.preco_cliente = 0; }
+  const ok = await act(async () => { const [n] = await db.ins('tdh_orcamento_itens', row); S.itens.push(n); return true; });
+  if (ok) { closeModal(); rerender(); }
+}
+async function moveItem(iid, dir){
+  const it = S.itens.find(i => i.id === iid), its = itensDe(it.orcamento_id), k = its.indexOf(it), o = its[k + dir];
+  if (!o) return;
+  const a = it.ordem, b = o.ordem === a ? a + dir : o.ordem;
+  it.ordem = b; o.ordem = a;
+  await act(() => Promise.all([db.upd('tdh_orcamento_itens', eqId(it.id), { ordem:b }), db.upd('tdh_orcamento_itens', eqId(o.id), { ordem:a })]));
+  rerender();
+}
+function excluirItem(iid){
+  const it = S.itens.find(i => i.id === iid);
+  confirmar('Excluir item', `Tirar <b>${esc(it.titulo)}</b> do orçamento?`, 'Excluir', async () => {
+    const ok = await act(async () => { await db.del('tdh_orcamento_itens', eqId(iid)); S.itens = S.itens.filter(i => i.id !== iid); return true; });
+    if (ok) rerender();
+  }, true);
+}
+
+async function emitirOrc(oid){
+  const o = orc(oid), t = totaisOrc(oid);
+  if (!t.nServ) return toast('Coloque pelo menos um item de serviço.', true);
+  if (!o.cliente_id && !o.cliente_nome) return toast('Escolha o cliente antes de emitir.', true);
+  confirmar('Emitir orçamento', `O orçamento recebe o próximo número (cerca de <b>${proxNumero()}</b>) e a data de hoje. O número não volta atrás.<br><br>Total: <b>${money(t.total)}</b>`,
+    'Emitir', async () => {
+      const ok = await act(async () => { const [n] = await db.upd('tdh_orcamentos', eqId(oid), { status:'enviado' }); Object.assign(o, n); return true; });
+      if (ok) { toast('Orçamento ' + numOrc(o) + ' emitido.'); go('#/orc/' + oid + '/pdf'); }
+    });
+}
+async function mudaStatusOrc(oid, st){
+  const o = orc(oid);
+  const ok = await act(async () => { const [n] = await db.upd('tdh_orcamentos', eqId(oid), { status:st }); Object.assign(o, n); return true; });
+  if (ok) rerender();
+}
+function aprovarOrc(oid){
+  const o = orc(oid), t = totaisOrc(oid);
+  confirmar('Cliente aprovou', `Cria o serviço com valor de <b>${money(t.total)}</b>${num(o.entrada_valor) ? `, entrada de <b>${money(o.entrada_valor)}</b> e saldo de <b>${money(t.total - num(o.entrada_valor))}</b>` : ''}. Depois você marca os dias e os prestadores.`,
+    'Criar serviço', async () => {
+      const sid = await act(async () => {
+        // Função no banco: serviço, entrada e saldo nascem juntos ou nada.
+        const id = await db.rpc('tdh_aprovar_orcamento', { p_orcamento: oid });
+        await load('orcs', 'servicos', 'receb');
+        return id;
+      }, 'Serviço criado.');
+      if (sid) go('#/serv/' + sid);
+    });
+}
+async function duplicarOrc(oid){
+  const o = orc(oid), its = itensDe(oid);
+  const novo = await act(async () => {
+    const campos = ['cliente_id','cliente_nome','local_servico','subtitulo','validade_dias','garantia_dias','entrada_valor','texto_execucao','texto_garantia','texto_imprevistos'];
+    const row = { status:'rascunho' }; campos.forEach(k => row[k] = o[k]);
+    const [n] = await db.ins('tdh_orcamentos', row);
+    if (its.length) {
+      const cps = its.map(i => ({ orcamento_id:n.id, ordem:i.ordem, tipo:i.tipo, titulo:i.titulo, descricao_cliente:i.descricao_cliente,
+        tempo_estimado_min:i.tempo_estimado_min, material_custo:i.material_custo, mao_obra:i.mao_obra, margem_material_pct:i.margem_material_pct, preco_cliente:i.preco_cliente }));
+      S.itens.push(...await db.ins('tdh_orcamento_itens', cps));
+    }
+    S.orcs.unshift(n); return n;
+  }, 'Cópia criada como rascunho.');
+  if (novo) go('#/orc/' + novo.id);
+}
+function excluirOrc(oid){
+  confirmar('Excluir rascunho', 'O rascunho e os itens dele somem. Isso não tem volta.', 'Excluir', async () => {
+    const ok = await act(async () => { await db.del('tdh_orcamentos', eqId(oid)); S.orcs = S.orcs.filter(o => o.id !== oid); S.itens = S.itens.filter(i => i.orcamento_id !== oid); return true; });
+    if (ok) go('#/orcamentos');
+  }, true);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PDF DO ORÇAMENTO — mesmo layout do 653, com a logo da marca.
+   As páginas são montadas em tamanho A4 real (794×1123 px) e os itens
+   são distribuídos medindo a altura, para nunca cortar linha no meio.
+   ═══════════════════════════════════════════════════════════════════ */
+const LOGO_SRC = 'simbolo.svg';
+function pdfLetterhead(){
+  return `<div class="pdf-lh"><div class="b"><img src="${LOGO_SRC}" alt="">
+    <div><div class="wm">Trabalho <span>de Homem</span><small>.CWB</small></div><div class="sl">${esc(EMPRESA.slogan)}</div></div></div>
+    <div class="ct"><b>${esc(EMPRESA.nome)}</b><br>WhatsApp ${esc(EMPRESA.whats)}<br>${esc(EMPRESA.insta)}</div></div>`;
+}
+function novaPagina(root, rascunho){
+  const pg = document.createElement('div'); pg.className = 'pdf-page';
+  pg.innerHTML = `<div class="pdf-accent"></div><div class="pdf-in">${pdfLetterhead()}</div>
+    <div class="pdf-foot"><div>Trabalho de Homem · Curitiba e região · ${esc(EMPRESA.insta)}</div><div class="pn"></div></div>
+    ${rascunho ? '<div class="pdf-draft">RASCUNHO</div>' : ''}`;
+  root.appendChild(pg); return pg.querySelector('.pdf-in');
+}
+const cabe = el => el.scrollHeight <= el.clientHeight + 1;
+// Põe um bloco na página atual; se não couber, abre página nova.
+function poe(ctx, html){
+  const tmp = document.createElement('div'); tmp.innerHTML = html; const el = tmp.firstElementChild;
+  ctx.body.appendChild(el);
+  if (!cabe(ctx.body) && ctx.body.children.length > 1) { el.remove(); ctx.body = novaPagina(ctx.root, ctx.rasc); ctx.body.appendChild(el); }
+  return el;
+}
+function textoGarantia(o){ return String(o.texto_garantia || '').replace(/\{garantia\}/g, num(o.garantia_dias)); }
+
+async function montarPdf(oid, root){
+  const o = orc(oid), t = totaisOrc(oid), its = itensDe(oid).filter(i => i.tipo === 'servico'), c = cliente(o.cliente_id);
+  const rasc = o.status === 'rascunho';
+  const emissao = o.emissao || hoje(), validade = addDias(emissao, num(o.validade_dias));
+  const nomeCli = o.cliente_nome || c?.nome || '—';
+  root.innerHTML = '';
+  await document.fonts.ready;
+  const ctx = { root, rasc, body:novaPagina(root, rasc) };
+  poe(ctx, `<div class="pdf-title"><div><h1>ORÇAMENTO</h1><p>${esc(o.subtitulo || '')}</p></div>
+    <div class="pdf-meta"><span>Nº</span><b>${rasc ? 'rascunho' : numOrc(o)}</b><span>Emissão</span><b>${fmtData(emissao)}</b>
+    <span>Validade</span><b>${fmtData(validade)} (${num(o.validade_dias)} dias)</b><span>Cliente</span><b>${esc(nomeCli)}</b>
+    ${o.local_servico ? `<span>Local</span><b>${esc(o.local_servico)}</b>` : ''}</div></div>`);
+  // Tabela: uma por página, com o cabeçalho repetido na continuação.
+  const head = `<thead><tr><th>#</th><th>Serviço (material incluso)</th><th class="v">Valor</th></tr></thead>`;
+  let tb = poe(ctx, `<table class="pdf-t">${head}<tbody></tbody></table>`).querySelector('tbody');
+  its.forEach((it, k) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="n">${k+1}</td><td><div class="it">${esc(it.titulo)}</div>${it.descricao_cliente ? `<div class="ds">${esc(it.descricao_cliente)}</div>` : ''}</td><td class="v">${money(it.preco_cliente)}</td>`;
+    tb.appendChild(tr);
+    if (!cabe(ctx.body) && tb.children.length > 1) {
+      tr.remove(); ctx.body = novaPagina(root, rasc);
+      tb = poe(ctx, `<table class="pdf-t">${head}<tbody></tbody></table>`).querySelector('tbody'); tb.appendChild(tr);
+    }
+  });
+  poe(ctx, `<div class="pdf-total"><div><span>TOTAL</span><b>${money(t.total)}</b></div></div>`);
+
+  // Condições começam sempre em página própria, como no 653.
+  ctx.body = novaPagina(root, rasc);
+  poe(ctx, `<div class="pdf-h2">CONDIÇÕES DO ORÇAMENTO${rasc ? '' : ' Nº ' + numOrc(o)}</div>`);
+  const ent = num(o.entrada_valor), cfg = S.cfg || {};
+  const pix = cfg.pix_chave ? ` Pagamento via PIX, chave ${esc(cfg.pix_tipo || '')} <b>${esc(cfg.pix_chave)}</b>.` : '';
+  const pag = ent > 0 && ent < t.total
+    ? `Entrada de <b>${money(ent)}</b> na aprovação do orçamento, destinada à compra do material e à logística. Saldo de <b>${money(t.total - ent)}</b> na conclusão dos serviços.${pix}`
+    : `Pagamento de <b>${money(t.total)}</b> na conclusão dos serviços.${pix}`;
+  const blocos = [
+    ['Execução', esc(o.texto_execucao || '')],
+    ['Pagamento', pag],
+    ['Validade', `Este orçamento é válido por ${num(o.validade_dias)} dias a partir da emissão, até ${fmtData(validade)}. Após esse prazo, valores de material podem ser revistos.`],
+    ['Garantia', esc(textoGarantia(o))],
+    ['Imprevistos e serviços adicionais', esc(o.texto_imprevistos || '')],
+  ].filter(b => b[1]);
+  blocos.forEach(([h, tx]) => poe(ctx, `<div class="pdf-cl"><h4>${h}</h4><div>${tx}</div></div>`));
+  poe(ctx, `<div class="pdf-box"><span>Valor total dos serviços, com material incluso</span><b>${money(t.total)}</b></div>`);
+  poe(ctx, `<div class="pdf-sign"><h4>Aceite</h4><p>De acordo com os serviços, valores e condições acima.</p>
+    <div class="g"><div><b>Trabalho de Homem${cfg.cnpj ? ' · CNPJ ' + esc(cfg.cnpj) : ''}</b><br><span>${esc(EMPRESA.nome)}</span></div>
+    <div><b>${esc(nomeCli)}</b>${c?.documento ? '<br><span>' + esc(c.documento) + '</span>' : ''}<br><span>Contratante · Data: ____/____/______</span></div></div></div>`);
+  const pgs = root.querySelectorAll('.pdf-page');
+  pgs.forEach((p, k) => p.querySelector('.pn').textContent = `Página ${k+1} de ${pgs.length}`);
+}
+
+let pdfOid = null;
+async function abrirPdf(oid){
+  const o = orc(oid); if (!o) return;
+  pdfOid = oid; closePdf();
+  const w = document.createElement('div'); w.id = 'pdf-wrap';
+  w.innerHTML = `<div id="pdf-bar"><button class="icon-btn" onclick="voltarPdf()">${ic('left')}</button>
+    <div class="t">${o.numero ? 'Orçamento ' + numOrc(o) : 'Prévia do rascunho'}</div>
+    <button class="btn btn-sm btn-p" onclick="compartilharPdf()">${ic('share')} Enviar</button>
+    <button class="icon-btn" title="Imprimir / salvar PDF" onclick="window.print()">${ic('print')}</button></div>
+    <div id="pdf-scroll"><div id="pdf-scale"></div></div>`;
+  document.body.appendChild(w);
+  const root = $('pdf-scale');
+  await montarPdf(oid, root);
+  ajustaEscalaPdf();
+}
+// Escala só na tela; na impressão e na geração do PDF a página volta ao
+// tamanho real (ver @media print e compartilharPdf).
+function ajustaEscalaPdf(){
+  const sc = $('pdf-scroll'), root = $('pdf-scale'); if (!sc || !root) return;
+  const s = Math.min(1, (sc.clientWidth - 24) / 794), n = root.children.length;
+  root.style.transform = `scale(${s})`; root.style.width = '794px';
+  root.style.height = (n * (1123 + 18)) * s + 'px'; root.style.marginLeft = Math.max(12, (sc.clientWidth - 794*s)/2) + 'px';
+}
+window.addEventListener('resize', ajustaEscalaPdf);
+function closePdf(){ const w = $('pdf-wrap'); if (w) w.remove(); }
+// Voltar do PDF: se você chegou pelo app, volta uma tela (o botão do
+// Android faz o mesmo). Se abriu o link do PDF direto, vai para o editor.
+let navegou = 0; window.addEventListener('hashchange', () => navegou++);
+function voltarPdf(){ if (navegou > 0) history.back(); else location.replace('#/orc/' + pdfOid); }
+window.addEventListener('hashchange', () => { if (route().sub !== 'pdf') closePdf(); });
+
+const loadScript = src => new Promise((ok, no) => { if (document.querySelector(`script[src="${src}"]`)) return ok();
+  const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => no(new Error('Sem internet para gerar o PDF.')); document.head.appendChild(s); });
+
+// Gera o arquivo PDF no próprio celular e abre o "compartilhar" do Android
+// (WhatsApp, e-mail…). Bibliotecas carregam só aqui, para o app abrir rápido.
+async function compartilharPdf(){
+  const o = orc(pdfOid); if (!o) return;
+  if (o.status === 'rascunho') { toast('Emita o orçamento antes de enviar: rascunho não tem número.', true); return; }
+  const nome = `Orcamento-${numOrc(o).replace('/', '-')}-Trabalho-de-Homem.pdf`;
+  await act(async () => {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    const root = $('pdf-scale'), tf = root.style.transform; root.style.transform = 'none';
+    try {
+      const pdf = new window.jspdf.jsPDF({ unit:'mm', format:'a4', compress:true });
+      const pgs = [...root.querySelectorAll('.pdf-page')];
+      for (let k = 0; k < pgs.length; k++) {
+        const cv = await html2canvas(pgs[k], { scale:2, backgroundColor:'#ffffff', useCORS:true, logging:false });
+        if (k) pdf.addPage();
+        pdf.addImage(cv.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
+      }
+      const blob = pdf.output('blob'), file = new File([blob], nome, { type:'application/pdf' });
+      if (navigator.canShare && navigator.canShare({ files:[file] })) {
+        try { await navigator.share({ files:[file], title:nome }); } catch(e) { if (e.name !== 'AbortError') throw e; }
+      } else {
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nome; a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      }
+    } finally { root.style.transform = tf; }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SERVIÇOS
+   ═══════════════════════════════════════════════════════════════════ */
+let servFiltro = 'ativos', servBusca = '';
+function vServicos(){
+  const F = { ativos:s => s.status === 'a_agendar' || s.status === 'agendado',
+    receber:s => s.status !== 'cancelado' && totaisServ(s.id).aReceber > 0.005,
+    feitos:s => s.status === 'executado', todos:() => true };
+  const b = servBusca.toLowerCase();
+  const lista = S.servicos.filter(F[servFiltro]).filter(s => !b || (s.descricao + ' ' + (cliente(s.cliente_id)?.nome || '') + ' ' + (s.bairro || '')).toLowerCase().includes(b));
+  return `
+  <div class="pg-head"><h2 class="pg">Serviços</h2></div>
+  <div class="search">${ic('search')}<input class="in" placeholder="Buscar serviço, cliente, bairro" value="${esc(servBusca)}" oninput="servBusca=this.value;filtraServ()"></div>
+  <div class="seg" style="margin-bottom:12px">${[['ativos','Em andamento'],['receber','A receber'],['feitos','Executados'],['todos','Todos']]
+    .map(([k,t]) => `<button class="${servFiltro === k ? 'on' : ''}" onclick="servFiltro='${k}';rerender()">${t}</button>`).join('')}</div>
+  <div class="list" id="serv-list">${lista.length ? lista.map(rowServ).join('') : '<div class="empty">Nenhum serviço aqui.</div>'}</div>
+  <div style="height:64px"></div><button class="btn btn-p fab" onclick="modalNovoServico()">${ic('plus')} Novo serviço</button>`;
+}
+function filtraServ(){ const y = window.scrollY; const v = servBusca; render(); const inp = document.querySelector('.search input'); if (inp) { inp.focus(); inp.setSelectionRange(v.length, v.length); } window.scrollTo(0, y); }
+function rowServ(s){
+  const c = cliente(s.cliente_id), t = totaisServ(s.id), ag = agendasDe(s.id), prox = ag.find(a => a.data >= hoje()) || ag[ag.length-1];
+  return `<a class="row" href="#/serv/${s.id}"><div class="main"><div class="t">${esc(s.descricao)}</div>
+    <div class="m">${badgeServ(s)} ${c ? esc(c.nome) : ''}${prox ? ' · ' + fmtData(prox.data) : ''}${t.aReceber > 0.005 ? ` · <span style="color:var(--red)">falta receber <span class="money">${money(t.aReceber)}</span></span>` : ''}</div></div>
+    <div class="r val">${m$(s.valor_cobrado)}</div></a>`;
+}
+
+function modalNovoServico(data){
+  openModal('Novo serviço', `
+    <p style="color:var(--text3);font-size:13px;margin:-6px 0 12px">Para serviço rápido, sem orçamento. Se tiver orçamento, aprove por lá que o serviço nasce sozinho.</p>
+    <div class="field"><label>O que vai ser feito</label><input class="in" id="ns-desc" placeholder="Ex.: Troca de chuveiro"></div>
+    <div class="field"><label>Cliente</label><div style="display:flex;gap:8px"><select class="in" id="ns-cli" onchange="nsCli()">
+      <option value="">— sem cadastro —</option>${S.clientes.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('')}</select>
+      <button class="btn btn-s btn-sm" onclick="nsNovoCliente()">${ic('plus')}</button></div></div>
+    <div class="field"><label>Endereço</label><input class="in" id="ns-end"></div>
+    <div class="f2"><div class="field"><label>Bairro</label><input class="in" id="ns-bai"></div><div class="field"><label>Cidade</label><input class="in" id="ns-cid"></div></div>
+    <div class="f2"><div class="field"><label>Valor cobrado (R$)</label><input class="in num" id="ns-val" inputmode="decimal"></div>
+      <div class="field"><label>Material — custo (R$)</label><input class="in num" id="ns-mat" inputmode="decimal"></div></div>
+    <div class="f3"><div class="field"><label>Data</label><input class="in" type="date" id="ns-data" value="${data || ''}"></div>
+      <div class="field"><label>Início</label><input class="in" type="time" id="ns-ini"></div><div class="field"><label>Fim</label><input class="in" type="time" id="ns-fim"></div></div>
+    <div id="ns-warn"></div>
+    <button class="btn btn-p btn-w" onclick="criarServico()">Criar serviço</button>`);
+  ['ns-data','ns-ini','ns-fim'].forEach(i => $(i).addEventListener('change', () => { $('ns-warn').innerHTML = warnHtml(conflitos(fv('ns-data'), fv('ns-ini'), fv('ns-fim'))); }));
+  if (data) $('ns-warn').innerHTML = warnHtml(conflitos(data, '', ''));
+}
+// Só existe um modal por vez: guarda o formulário, cadastra o cliente e
+// volta com tudo preenchido.
+const NS_CAMPOS = ['ns-desc','ns-end','ns-bai','ns-cid','ns-val','ns-mat','ns-data','ns-ini','ns-fim'];
+function nsNovoCliente(){
+  const rasc = {}; NS_CAMPOS.forEach(k => rasc[k] = fv(k));
+  modalCliente(null, cid => { modalNovoServico(rasc['ns-data']); NS_CAMPOS.forEach(k => { if ($(k)) $(k).value = rasc[k]; });
+    $('ns-cli').value = cid; nsCli(); });
+}
+function nsCli(){ const c = cliente(fv('ns-cli')); if (!c) return;
+  if (!fv('ns-end')) $('ns-end').value = c.endereco || ''; if (!fv('ns-bai')) $('ns-bai').value = c.bairro || ''; if (!fv('ns-cid')) $('ns-cid').value = c.cidade || ''; }
+const warnHtml = av => av.map(a => `<div class="warn">${ic('alert')}<span>${a}</span></div>`).join('');
+async function criarServico(){
+  const desc = fv('ns-desc').trim(); if (!desc) return toast('Diga o que vai ser feito.', true);
+  const ini = fv('ns-ini'), fim = fv('ns-fim'), data = fv('ns-data');
+  if (ini && fim && fim <= ini) return toast('O fim precisa ser depois do início.', true);
+  const val = parseMoney(fv('ns-val'));
+  const sid = await act(async () => {
+    const [s] = await db.ins('tdh_servicos', { descricao:desc, cliente_id:fv('ns-cli') || null, endereco:fv('ns-end').trim() || null,
+      bairro:fv('ns-bai').trim() || null, cidade:fv('ns-cid').trim() || null, valor_cobrado:val, custo_material:parseMoney(fv('ns-mat')),
+      status: data ? 'agendado' : 'a_agendar' });
+    S.servicos.unshift(s);
+    if (val > 0) S.receb.push(...await db.ins('tdh_recebimentos', { servico_id:s.id, descricao:'Pagamento', valor:val, previsao:data || null }));
+    // O trigger do banco cria o bloqueio no Diligências ao gravar o dia.
+    if (data) S.agendas.push(...await db.ins('tdh_agendas', { servico_id:s.id, data, horario_inicio:ini || null, horario_fim:fim || null }));
+    return s.id;
+  }, 'Serviço criado.');
+  if (sid) { closeModal(); go('#/serv/' + sid); }
+}
+
+function vServ(r){
+  const s = serv(r.id);
+  if (!s) return `<a class="back" href="#/servicos">${ic('left')} Serviços</a><div class="card empty">Serviço não encontrado.</div>`;
+  const c = cliente(s.cliente_id), o = s.orcamento_id ? orc(s.orcamento_id) : null, t = totaisServ(s.id);
+  const ag = agendasDe(s.id), rs = recebDe(s.id), vs = vincDe(s.id);
+  const end = [s.endereco, s.bairro, s.cidade].filter(Boolean).join(', ');
+  const wa = c?.whatsapp ? waLink(c.whatsapp) : null;
+  const internosOrc = o ? itensDe(o.id).filter(i => i.tipo === 'custo_interno' && num(i.mao_obra) > 0) : [];
+  return `
+  <a class="back" href="#/servicos">${ic('left')} Serviços</a>
+  <div class="pg-head"><div style="min-width:0"><h2 class="pg">${esc(s.descricao)}</h2>
+    <div class="pg-sub">${badgeServ(s)} ${o ? `<a href="#/orc/${o.id}" style="color:var(--blue);font-weight:600">Orçamento ${numOrc(o)}</a>` : 'Sem orçamento'}</div></div>
+    <button class="btn btn-sm btn-s" onclick="modalEditServ('${s.id}')">${ic('edit')} Editar</button></div>
+
+  <div class="card">
+    ${c ? `<div style="display:flex;align-items:center;gap:10px;margin-bottom:${end ? 10 : 0}px"><div style="flex:1"><div class="lbl">Cliente</div><a href="#/cliente/${c.id}" style="font-weight:700;text-decoration:none">${esc(c.nome)}</a></div>
+      ${wa ? `<a class="btn btn-sm btn-s" href="${wa}" target="_blank" rel="noopener">${ic('phone')} WhatsApp</a>` : ''}</div>` : '<div class="lbl" style="margin-bottom:6px">Sem cliente cadastrado</div>'}
+    ${end ? `<a href="${mapsLink(end)}" target="_blank" rel="noopener" style="display:flex;gap:8px;color:var(--text2);text-decoration:none;font-size:14px">${ic('pin')}<span>${esc(end)}</span></a>` : ''}
+    ${s.observacoes ? `<div style="margin-top:10px;font-size:14px;color:var(--text2);white-space:pre-wrap">${esc(s.observacoes)}</div>` : ''}
+  </div>
+
+  <div class="sec">Status</div>
+  <div class="seg">${Object.entries(ST_SERV).map(([k,[t]]) => `<button class="${s.status === k ? 'on' : ''}" onclick="setStatusServ('${s.id}','${k}')">${t}</button>`).join('')}</div>
+
+  <div class="sec">Dias de execução <button class="lnk" onclick="modalAgenda('${s.id}')">+ Dia</button></div>
+  <div class="list">${ag.length ? ag.map(a => `<button class="row" onclick="modalAgenda('${s.id}','${a.id}')">${datePill(a.data)}<div class="main">
+    <div class="t">${horaFaixa(a)}</div><div class="m">${fmtDataLonga(a.data)} · bloqueado no Diligências</div></div>${ic('edit')}</button>`).join('')
+    : `<div class="empty">Nenhum dia marcado. <button class="lnk" style="border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer" onclick="modalAgenda('${s.id}')">Marcar agora</button></div>`}</div>
+
+  <div class="sec">Recebimentos do cliente <button class="lnk" onclick="modalReceb('${s.id}')">+ Lançar</button></div>
+  <div class="list">${rs.length ? rs.map(x => `<div class="row" style="cursor:default"><div class="main" onclick="modalReceb('${s.id}','${x.id}')" style="cursor:pointer">
+      <div class="t">${esc(x.descricao)} · <span class="money">${money(x.valor)}</span></div>
+      <div class="m">${x.recebido_em ? `<span style="color:var(--green);font-weight:700">Recebido ${fmtData(x.recebido_em)}</span>${x.forma_pagamento ? ' · ' + esc(x.forma_pagamento) : ''}` : (x.previsao ? `Previsto ${fmtData(x.previsao)}${x.previsao < hoje() ? ' · <b style="color:var(--red)">atrasado</b>' : ''}` : 'Sem previsão')}</div></div>
+      ${x.recebido_em ? `<span class="badge b-green">${ic('check')}</span>` : `<button class="btn btn-sm btn-p" onclick="modalBaixa('${x.id}')">Recebi</button>`}</div>`).join('')
+    : '<div class="empty">Nada lançado.</div>'}</div>
+  ${Math.abs(t.lancado - num(s.valor_cobrado)) > 0.005 ? `<div class="warn" style="margin-top:8px">${ic('alert')}<span>Lançado <b class="money">${money(t.lancado)}</b>, mas o serviço vale <b class="money">${money(s.valor_cobrado)}</b>. ${t.lancado < num(s.valor_cobrado) ? `<button class="lnk" style="border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer;padding:0" onclick="lancarDiferenca('${s.id}')">Lançar a diferença</button>` : ''}</span></div>` : ''}
+
+  <div class="sec">Prestadores e repasses <button class="lnk" onclick="modalVinc('${s.id}')">+ Prestador</button></div>
+  <div class="list">${vs.length ? vs.map(v => { const p = prestador(v.prestador_id);
+    return `<div class="row" style="cursor:default"><div class="main" onclick="modalVinc('${s.id}','${v.id}')" style="cursor:pointer">
+      <div class="t">${p ? esc(p.nome) : '<span style="color:var(--red)">A definir</span>'}${v.funcao ? ' · ' + esc(v.funcao) : ''}</div>
+      <div class="m"><span class="money">${money(v.valor_repasse)}</span> · ${v.repasse_status === 'pago' ? `<span style="color:var(--green);font-weight:700">pago ${fmtData(v.repassado_em)}</span>` : 'a pagar'}</div></div>
+      ${v.repasse_status === 'pago' ? `<span class="badge b-green">${ic('check')}</span>` : (p ? `<button class="btn btn-sm btn-p" onclick="pagarRepasse('${v.id}')">Paguei</button>` : '')}</div>`; }).join('')
+    : `<div class="empty">Você mesmo faz. Se for terceirizar, adicione o prestador.${internosOrc.length ? `<br><button class="lnk" style="border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer;margin-top:6px" onclick="trazerInternos('${s.id}')">Trazer os ${internosOrc.length} custo(s) interno(s) do orçamento</button>` : ''}</div>`}</div>
+
+  <div class="sec">Resumo</div>
+  <div class="card"><table class="sumtab">
+    <tr><td>Cobrado do cliente</td><td class="money">${money(s.valor_cobrado)}</td></tr>
+    <tr><td>Material</td><td class="neg money">− ${money(s.custo_material)}</td></tr>
+    <tr><td>Repasses</td><td class="neg money">− ${money(t.repasse)}</td></tr>
+    <tr class="tot"><td>Seu lucro</td><td class="money" style="color:${t.lucro < 0 ? 'var(--red)' : 'var(--green)'}">${money(t.lucro)}</td></tr>
+    <tr><td style="color:var(--text3)">Já recebido</td><td class="money" style="color:var(--text3)">${money(t.recebido)}</td></tr>
+    <tr><td style="color:var(--text3)">Falta receber</td><td class="money" style="color:var(--text3)">${money(t.aReceber)}</td></tr>
+  </table></div>
+  <div class="btns" style="margin-top:16px"><button class="btn btn-d" onclick="excluirServ('${s.id}')">${ic('trash')} Excluir serviço</button></div>`;
+}
+
+async function setStatusServ(sid, st){
+  const s = serv(sid); if (s.status === st) return;
+  const go2 = async () => { const ok = await act(async () => { const [n] = await db.upd('tdh_servicos', eqId(sid), { status:st }); Object.assign(s, n); return true; });
+    if (ok) { if (st === 'cancelado') toast('Cancelado. Os bloqueios no Diligências foram liberados.'); rerender(); } };
+  if (st === 'cancelado') confirmar('Cancelar serviço', 'Os dias deste serviço deixam de bloquear sua agenda no Diligências. Os lançamentos ficam guardados.', 'Cancelar serviço', go2, true);
+  else go2();
+}
+function modalEditServ(sid){
+  const s = serv(sid);
+  openModal('Editar serviço', `
+    <div class="field"><label>Descrição</label><input class="in" id="es-desc" value="${esc(s.descricao)}"></div>
+    <div class="field"><label>Cliente</label><select class="in" id="es-cli"><option value="">— sem cadastro —</option>
+      ${S.clientes.map(c => `<option value="${c.id}" ${c.id === s.cliente_id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select></div>
+    <div class="field"><label>Endereço</label><input class="in" id="es-end" value="${esc(s.endereco || '')}"></div>
+    <div class="f2"><div class="field"><label>Bairro</label><input class="in" id="es-bai" value="${esc(s.bairro || '')}"></div>
+      <div class="field"><label>Cidade</label><input class="in" id="es-cid" value="${esc(s.cidade || '')}"></div></div>
+    <div class="f2"><div class="field"><label>Valor cobrado (R$)</label><input class="in num" id="es-val" inputmode="decimal" value="${moneyIn(s.valor_cobrado)}"></div>
+      <div class="field"><label>Material — custo (R$)</label><input class="in num" id="es-mat" inputmode="decimal" value="${moneyIn(s.custo_material)}"></div></div>
+    <div class="field"><label>Observações</label><textarea class="in" id="es-obs">${esc(s.observacoes || '')}</textarea></div>
+    <button class="btn btn-p btn-w" onclick="salvarServ('${sid}')">Salvar</button>`);
+}
+async function salvarServ(sid){
+  const s = serv(sid), desc = fv('es-desc').trim(); if (!desc) return toast('A descrição não pode ficar vazia.', true);
+  const patch = { descricao:desc, cliente_id:fv('es-cli') || null, endereco:fv('es-end').trim() || null, bairro:fv('es-bai').trim() || null,
+    cidade:fv('es-cid').trim() || null, valor_cobrado:parseMoney(fv('es-val')), custo_material:parseMoney(fv('es-mat')), observacoes:fv('es-obs').trim() || null };
+  const ok = await act(async () => { const [n] = await db.upd('tdh_servicos', eqId(sid), patch); Object.assign(s, n); return true; }, 'Salvo.');
+  if (ok) { closeModal(); rerender(); }
+}
+function excluirServ(sid){
+  confirmar('Excluir serviço', 'Apaga o serviço, os dias, os recebimentos e os repasses dele, e libera os bloqueios no Diligências. Se só não vai mais acontecer, prefira <b>Cancelado</b>: o histórico fica.', 'Excluir de vez', async () => {
+    const ok = await act(async () => { await db.del('tdh_servicos', eqId(sid)); await load('servicos','agendas','receb','vinc','orcs'); return true; });
+    if (ok) go('#/servicos');
+  }, true);
+}
+
+// Dias
+function modalAgenda(sid, aid){
+  const a = aid ? S.agendas.find(x => x.id === aid) : null;
+  openModal(a ? 'Editar dia' : 'Marcar dia', `
+    <div class="field"><label>Data</label><input class="in" type="date" id="ag-data" value="${a ? a.data : ''}"></div>
+    <div class="f2"><div class="field"><label>Início</label><input class="in" type="time" id="ag-ini" value="${a ? hhmm(a.horario_inicio) : ''}"></div>
+      <div class="field"><label>Fim</label><input class="in" type="time" id="ag-fim" value="${a ? hhmm(a.horario_fim) : ''}"></div></div>
+    <p style="font-size:12.5px;color:var(--text3);margin:-4px 0 12px">Sem horário, o dia inteiro fica bloqueado no Diligências. Com horário, bloqueia 1h antes e 1h depois.</p>
+    <div id="ag-warn"></div>
+    <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarAgenda('${sid}', ${a ? `'${a.id}'` : 'null'})">Salvar</button>
+      ${a ? `<button class="btn btn-d" onclick="excluirAgenda('${a.id}')">${ic('trash')}</button>` : ''}</div>`);
+  const chk = () => { $('ag-warn').innerHTML = fv('ag-data') ? warnHtml(conflitos(fv('ag-data'), fv('ag-ini'), fv('ag-fim'), aid)) : ''; };
+  ['ag-data','ag-ini','ag-fim'].forEach(i => $(i).addEventListener('change', chk)); chk();
+}
+async function salvarAgenda(sid, aid){
+  const data = fv('ag-data'), ini = fv('ag-ini') || null, fim = fv('ag-fim') || null;
+  if (!data) return toast('Escolha a data.', true);
+  if (fim && !ini) return toast('Coloque o horário de início.', true);
+  if (ini && fim && fim <= ini) return toast('O fim precisa ser depois do início.', true);
+  const s = serv(sid);
+  const ok = await act(async () => {
+    const row = { data, horario_inicio:ini, horario_fim:fim };
+    if (aid) { const [n] = await db.upd('tdh_agendas', eqId(aid), row); Object.assign(S.agendas.find(x => x.id === aid), n); }
+    else S.agendas.push(...await db.ins('tdh_agendas', { ...row, servico_id:sid }));
+    // Primeiro dia marcado: o serviço passa de "a agendar" para "agendado".
+    if (s.status === 'a_agendar') { const [n] = await db.upd('tdh_servicos', eqId(sid), { status:'agendado' }); Object.assign(s, n); }
+    gcalSync(sid);
+    await loadDiligencias();
+    return true;
+  }, 'Dia salvo e bloqueado no Diligências.');
+  if (ok) { closeModal(); rerender(); }
+}
+function excluirAgenda(aid){
+  closeModal();
+  confirmar('Tirar este dia', 'O bloqueio deste dia no Diligências também sai.', 'Tirar dia', async () => {
+    const ok = await act(async () => { await db.del('tdh_agendas', eqId(aid)); S.agendas = S.agendas.filter(a => a.id !== aid); await loadDiligencias(); return true; });
+    if (ok) rerender();
+  }, true);
+}
+/* Agenda do Google: falta o e-mail da conta de serviço e a function
+   tdh-calendario. Enquanto não existir, isto não faz nada, e o app
+   funciona normalmente sem ela. Ver BACKLOG.md. */
+const GCAL_FUNCTION = null;
+function gcalSync(sid){ if (!GCAL_FUNCTION) return; }
+
+// Recebimentos
+const FORMAS = ['PIX','Dinheiro','Cartão','Transferência','Boleto'];
+function modalReceb(sid, rid){
+  const x = rid ? S.receb.find(r => r.id === rid) : null;
+  openModal(x ? 'Editar lançamento' : 'Novo recebimento', `
+    <div class="f2"><div class="field"><label>Descrição</label><input class="in" id="rc-desc" value="${esc(x?.descricao || 'Pagamento')}"></div>
+      <div class="field"><label>Valor (R$)</label><input class="in num" id="rc-val" inputmode="decimal" value="${x ? moneyIn(x.valor) : ''}"></div></div>
+    <div class="f2"><div class="field"><label>Previsão</label><input class="in" type="date" id="rc-prev" value="${x?.previsao || ''}"></div>
+      <div class="field"><label>Recebido em</label><input class="in" type="date" id="rc-rec" value="${x?.recebido_em || ''}"></div></div>
+    <div class="field"><label>Forma</label><div class="chips" id="rc-forma">${FORMAS.map(f => `<button class="chip ${x?.forma_pagamento === f ? 'on' : ''}" onclick="chipUnico(this)">${f}</button>`).join('')}</div></div>
+    <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarReceb('${sid}', ${x ? `'${x.id}'` : 'null'})">Salvar</button>
+      ${x ? `<button class="btn btn-d" onclick="excluirReceb('${x.id}')">${ic('trash')}</button>` : ''}</div>`);
+}
+function chipUnico(el){ const on = el.classList.contains('on'); el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('on')); if (!on) el.classList.add('on'); }
+const chipSel = id => $(id)?.querySelector('.chip.on')?.textContent || null;
+async function salvarReceb(sid, rid){
+  const v = parseMoney(fv('rc-val')); if (!v) return toast('Coloque o valor.', true);
+  const row = { descricao:fv('rc-desc').trim() || 'Pagamento', valor:v, previsao:fv('rc-prev') || null, recebido_em:fv('rc-rec') || null, forma_pagamento:chipSel('rc-forma') };
+  const ok = await act(async () => {
+    if (rid) { const [n] = await db.upd('tdh_recebimentos', eqId(rid), row); Object.assign(S.receb.find(r => r.id === rid), n); }
+    else S.receb.push(...await db.ins('tdh_recebimentos', { ...row, servico_id:sid }));
+    return true; }, 'Salvo.');
+  if (ok) { closeModal(); rerender(); }
+}
+function modalBaixa(rid){
+  const x = S.receb.find(r => r.id === rid);
+  openModal('Recebi', `<p style="margin:-4px 0 12px"><b>${esc(x.descricao)}</b> · <span class="money">${money(x.valor)}</span></p>
+    <div class="field"><label>Data</label><input class="in" type="date" id="bx-data" value="${hoje()}"></div>
+    <div class="field"><label>Forma</label><div class="chips" id="bx-forma">${FORMAS.map((f,k) => `<button class="chip ${k === 0 ? 'on' : ''}" onclick="chipUnico(this)">${f}</button>`).join('')}</div></div>
+    <button class="btn btn-p btn-w" onclick="darBaixa('${rid}')">${ic('check')} Confirmar</button>`);
+}
+async function darBaixa(rid){
+  const x = S.receb.find(r => r.id === rid), d = fv('bx-data'); if (!d) return toast('Escolha a data.', true);
+  const ok = await act(async () => { const [n] = await db.upd('tdh_recebimentos', eqId(rid), { recebido_em:d, forma_pagamento:chipSel('bx-forma') }); Object.assign(x, n); return true; }, 'Recebimento lançado.');
+  if (ok) { closeModal(); rerender(); }
+}
+function excluirReceb(rid){ closeModal();
+  confirmar('Excluir lançamento', 'Apagar este recebimento?', 'Excluir', async () => {
+    const ok = await act(async () => { await db.del('tdh_recebimentos', eqId(rid)); S.receb = S.receb.filter(r => r.id !== rid); return true; });
+    if (ok) rerender(); }, true); }
+async function lancarDiferenca(sid){
+  const s = serv(sid), t = totaisServ(sid), v = Math.round((num(s.valor_cobrado) - t.lancado)*100)/100;
+  const ok = await act(async () => { S.receb.push(...await db.ins('tdh_recebimentos', { servico_id:sid, descricao:'Saldo', valor:v })); return true; }, 'Diferença lançada.');
+  if (ok) rerender();
+}
+
+// Prestadores no serviço
+function modalVinc(sid, vid){
+  const v = vid ? S.vinc.find(x => x.id === vid) : null;
+  const ativos = S.prestadores.filter(p => p.ativo || p.id === v?.prestador_id);
+  openModal(v ? 'Editar repasse' : 'Prestador no serviço', `
+    <div class="field"><label>Quem</label><div style="display:flex;gap:8px"><select class="in" id="vc-pre" onchange="vcPre()">
+      <option value="">— a definir —</option>${ativos.map(p => `<option value="${p.id}" ${p.id === v?.prestador_id ? 'selected' : ''}>${esc(p.nome)}${p.especialidades?.length ? ' · ' + esc(p.especialidades.slice(0,2).join(', ')) : ''}</option>`).join('')}
+      </select><button class="btn btn-s btn-sm" onclick="modalPrestador(null, pid => { modalVinc('${sid}'${v ? `,'${v.id}'` : ''}); setTimeout(() => { $('vc-pre').value = pid; vcPre(); }, 0); })">${ic('plus')}</button></div>
+      <div class="hint">"A definir" marca que precisa de alguém, mesmo antes de saber quem.</div></div>
+    <div class="f2"><div class="field"><label>Função</label><input class="in" id="vc-fun" value="${esc(v?.funcao || '')}" placeholder="Ex.: eletricista"></div>
+      <div class="field"><label>Repasse (R$)</label><input class="in num" id="vc-val" inputmode="decimal" value="${v ? moneyIn(v.valor_repasse) : ''}"></div></div>
+    <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarVinc('${sid}', ${v ? `'${v.id}'` : 'null'})">Salvar</button>
+      ${v ? `<button class="btn btn-d" onclick="excluirVinc('${v.id}')">${ic('trash')}</button>` : ''}</div>
+    ${v?.repasse_status === 'pago' ? `<button class="btn btn-g btn-w" style="margin-top:8px" onclick="desfazerRepasse('${v.id}')">Desfazer "pago"</button>` : ''}`);
+}
+function vcPre(){ const p = prestador(fv('vc-pre')); if (!p) return;
+  if (!fv('vc-fun') && p.especialidades?.length) $('vc-fun').value = p.especialidades[0];
+  if (!fv('vc-val') && num(p.diaria_padrao)) $('vc-val').value = moneyIn(p.diaria_padrao); }
+async function salvarVinc(sid, vid){
+  const row = { prestador_id:fv('vc-pre') || null, funcao:fv('vc-fun').trim() || null, valor_repasse:parseMoney(fv('vc-val')) };
+  const ok = await act(async () => {
+    if (vid) { const [n] = await db.upd('tdh_servico_prestadores', eqId(vid), row); Object.assign(S.vinc.find(x => x.id === vid), n); }
+    else S.vinc.push(...await db.ins('tdh_servico_prestadores', { ...row, servico_id:sid }));
+    return true; }, 'Salvo.');
+  if (ok) { closeModal(); rerender(); }
+}
+function pagarRepasse(vid){
+  const v = S.vinc.find(x => x.id === vid), p = prestador(v.prestador_id);
+  openModal('Paguei', `<p style="margin:-4px 0 12px"><b>${esc(p?.nome || '')}</b> · <span class="money">${money(v.valor_repasse)}</span></p>
+    ${p?.pix ? `<div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div style="flex:1;min-width:0"><div class="lbl">PIX ${esc(p.pix_tipo || '')}</div>
+      <div style="font-weight:700;overflow-wrap:anywhere">${esc(p.pix)}</div></div><button class="btn btn-sm btn-s" onclick="copiarPix('${p.id}')">${ic('copy')} Copiar</button></div>` : ''}
+    <div class="field"><label>Data</label><input class="in" type="date" id="pg-data" value="${hoje()}"></div>
+    <button class="btn btn-p btn-w" onclick="confirmaRepasse('${vid}')">${ic('check')} Confirmar pagamento</button>`);
+}
+async function confirmaRepasse(vid){
+  const v = S.vinc.find(x => x.id === vid), d = fv('pg-data'); if (!d) return toast('Escolha a data.', true);
+  const ok = await act(async () => { const [n] = await db.upd('tdh_servico_prestadores', eqId(vid), { repasse_status:'pago', repassado_em:d }); Object.assign(v, n); return true; }, 'Repasse lançado.');
+  if (ok) { closeModal(); rerender(); }
+}
+async function desfazerRepasse(vid){
+  const v = S.vinc.find(x => x.id === vid);
+  const ok = await act(async () => { const [n] = await db.upd('tdh_servico_prestadores', eqId(vid), { repasse_status:'pendente', repassado_em:null }); Object.assign(v, n); return true; });
+  if (ok) { closeModal(); rerender(); }
+}
+function excluirVinc(vid){ closeModal();
+  confirmar('Tirar prestador', 'Tirar este prestador do serviço?', 'Tirar', async () => {
+    const ok = await act(async () => { await db.del('tdh_servico_prestadores', eqId(vid)); S.vinc = S.vinc.filter(v => v.id !== vid); return true; });
+    if (ok) rerender(); }, true); }
+// Ajudantes previstos como custo interno no orçamento viram repasses "a
+// definir", para você só escolher a pessoa.
+async function trazerInternos(sid){
+  const s = serv(sid), its = itensDe(s.orcamento_id).filter(i => i.tipo === 'custo_interno' && num(i.mao_obra) > 0);
+  const ok = await act(async () => { S.vinc.push(...await db.ins('tdh_servico_prestadores', its.map(i => ({ servico_id:sid, funcao:i.titulo, valor_repasse:num(i.mao_obra) })))); return true; }, 'Trazidos. Agora escolha quem faz.');
+  if (ok) rerender();
+}
+// Pelo id, e não com a chave no onclick: chave com aspas quebraria o HTML.
+function copiarPix(pid){ const p = prestador(pid); if (p?.pix) copiar(p.pix); }
+async function copiar(t){ try { await navigator.clipboard.writeText(t); toast('Copiado.'); } catch(e) { toast('Não consegui copiar.', true); } }
+
+/* ═══════════════════════════════════════════════════════════════════
+   PRESTADORES
+   ═══════════════════════════════════════════════════════════════════ */
+const ESPECIALIDADES = ['Elétrica','Hidráulica','Montagem de móveis','Instalação de TV','Pintura','Gesso / drywall','Alvenaria','Marcenaria',
+  'Serralheria','Vidraçaria','Ar-condicionado','Limpeza pós-obra','Ajudante geral'];
+const CIDADES = ['Curitiba','Pinhais','São José dos Pinhais','Colombo','Piraquara','Quatro Barras','Almirante Tamandaré','Araucária','Fazenda Rio Grande','Campo Largo'];
+let preFiltro = 'ativos';
+function vPrestadores(){
+  const lista = S.prestadores.filter(p => preFiltro === 'ativos' ? p.ativo : !p.ativo);
+  return `
+  <a class="back" href="#/mais">${ic('left')} Mais</a>
+  <div class="pg-head"><h2 class="pg">Prestadores</h2></div>
+  <div class="seg" style="margin-bottom:12px"><button class="${preFiltro === 'ativos' ? 'on' : ''}" onclick="preFiltro='ativos';rerender()">Ativos</button>
+    <button class="${preFiltro !== 'ativos' ? 'on' : ''}" onclick="preFiltro='inativos';rerender()">Inativos</button></div>
+  <div class="list">${lista.length ? lista.map(p => { const vs = S.vinc.filter(v => v.prestador_id === p.id);
+    const pend = vs.filter(v => v.repasse_status !== 'pago').reduce((t,v) => t + num(v.valor_repasse), 0);
+    return `<button class="row" onclick="modalPrestador('${p.id}')"><div class="main"><div class="t">${esc(p.nome)}</div>
+      <div class="m">${esc((p.especialidades || []).join(' · ') || 'Sem especialidade')}${vs.length ? ` · ${vs.length} serviço(s)` : ''}${pend ? ` · a pagar <span class="money">${money(pend)}</span>` : ''}</div></div>${ic('right')}</button>`; }).join('')
+    : '<div class="empty">Ninguém aqui ainda.</div>'}</div>
+  <div style="height:64px"></div><button class="btn btn-p fab" onclick="modalPrestador()">${ic('plus')} Novo prestador</button>`;
+}
+function chipsHtml(id, opts, marcadas){
+  const extra = (marcadas || []).filter(m => !opts.includes(m));
+  return `<div class="chips" id="${id}">${[...opts, ...extra].map(o => `<button type="button" class="chip ${marcadas?.includes(o) ? 'on' : ''}" onclick="this.classList.toggle('on')">${esc(o)}</button>`).join('')}
+    <button type="button" class="chip" style="border-style:dashed" onclick="chipNovo('${id}')">+ outra</button></div>`;
+}
+function chipNovo(id){ const v = prompt('Nome:'); if (!v?.trim()) return; const b = document.createElement('button'); b.type = 'button'; b.className = 'chip on';
+  b.textContent = v.trim(); b.onclick = () => b.classList.toggle('on'); const box = $(id); box.insertBefore(b, box.lastElementChild); }
+const chipsSel = id => [...$(id).querySelectorAll('.chip.on')].map(c => c.textContent.trim());
+function modalPrestador(pid, depois){
+  const p = pid ? prestador(pid) : null;
+  window._prestDepois = depois || null;
+  const wa = p?.whatsapp ? waLink(p.whatsapp) : null;
+  openModal(p ? p.nome : 'Novo prestador', `
+    ${p ? `<div class="btns" style="margin-bottom:12px">${wa ? `<a class="btn btn-sm btn-s" href="${wa}" target="_blank" rel="noopener">${ic('phone')} WhatsApp</a>` : ''}
+      ${p.pix ? `<button class="btn btn-sm btn-s" onclick="copiarPix('${p.id}')">${ic('copy')} Copiar PIX</button>` : ''}</div>` : ''}
+    <div class="field"><label>Nome</label><input class="in" id="pr-nome" value="${esc(p?.nome || '')}"></div>
+    <div class="f2"><div class="field"><label>WhatsApp</label><input class="in" id="pr-wa" inputmode="tel" value="${esc(p?.whatsapp || '')}"></div>
+      <div class="field"><label>E-mail</label><input class="in" id="pr-mail" type="email" value="${esc(p?.email || '')}"></div></div>
+    <div class="field"><label>O que faz</label>${chipsHtml('pr-esp', ESPECIALIDADES, p?.especialidades)}</div>
+    <div class="field"><label>Onde atende</label>${chipsHtml('pr-cid', CIDADES, p?.cidades)}</div>
+    <div class="f2"><div class="field"><label>Tipo de PIX</label><select class="in" id="pr-pixt">${['','CPF','CNPJ','Celular','E-mail','Aleatória'].map(t => `<option ${p?.pix_tipo === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+      <div class="field"><label>Chave PIX</label><input class="in" id="pr-pix" value="${esc(p?.pix || '')}"></div></div>
+    <div class="field"><label>Valor padrão / diária (R$)</label><input class="in num" id="pr-dia" inputmode="decimal" value="${p ? moneyIn(p.diaria_padrao) : ''}">
+      <div class="hint">Só sugere o repasse. O que vale é o valor em cada serviço.</div></div>
+    <div class="field"><label>Observações</label><textarea class="in" id="pr-obs">${esc(p?.observacoes || '')}</textarea></div>
+    <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarPrestador(${p ? `'${p.id}'` : 'null'})">Salvar</button>
+      ${p ? `<button class="btn btn-s" onclick="toggleAtivoPrest('${p.id}')">${p.ativo ? 'Desativar' : 'Reativar'}</button>` : ''}</div>`);
+}
+async function salvarPrestador(pid){
+  const nome = fv('pr-nome').trim(); if (!nome) return toast('Coloque o nome.', true);
+  const row = { nome, whatsapp:fv('pr-wa').trim() || null, email:fv('pr-mail').trim() || null, especialidades:chipsSel('pr-esp'), cidades:chipsSel('pr-cid'),
+    pix_tipo:fv('pr-pixt') || null, pix:fv('pr-pix').trim() || null, diaria_padrao:parseMoney(fv('pr-dia')) || null, observacoes:fv('pr-obs').trim() || null };
+  const depois = window._prestDepois;
+  const id2 = await act(async () => {
+    if (pid) { const [n] = await db.upd('tdh_prestadores', eqId(pid), row); Object.assign(prestador(pid), n); return pid; }
+    const [n] = await db.ins('tdh_prestadores', row); S.prestadores.push(n); S.prestadores.sort((a,b) => a.nome.localeCompare(b.nome)); return n.id;
+  }, 'Salvo.');
+  if (!id2) return;
+  closeModal(); if (depois) depois(id2); else rerender();
+}
+async function toggleAtivoPrest(pid){
+  const p = prestador(pid);
+  const ok = await act(async () => { const [n] = await db.upd('tdh_prestadores', eqId(pid), { ativo:!p.ativo }); Object.assign(p, n); return true; });
+  if (ok) { closeModal(); rerender(); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CLIENTES
+   ═══════════════════════════════════════════════════════════════════ */
+let cliBusca = '';
+function vClientes(){
+  const b = cliBusca.toLowerCase();
+  const lista = S.clientes.filter(c => !b || (c.nome + ' ' + (c.bairro || '') + ' ' + onlyDigits(c.whatsapp)).toLowerCase().includes(b));
+  return `
+  <a class="back" href="#/mais">${ic('left')} Mais</a>
+  <div class="pg-head"><h2 class="pg">Clientes</h2></div>
+  <div class="search">${ic('search')}<input class="in" placeholder="Buscar nome, bairro, telefone" value="${esc(cliBusca)}" oninput="cliBusca=this.value;filtraCli()"></div>
+  <div class="list">${lista.length ? lista.map(c => { const n = S.servicos.filter(s => s.cliente_id === c.id).length;
+    return `<a class="row" href="#/cliente/${c.id}"><div class="main"><div class="t">${esc(c.nome)}</div>
+      <div class="m">${esc([c.bairro, c.cidade].filter(Boolean).join(' · ') || c.whatsapp || '')}${n ? ` · ${n} serviço(s)` : ''}</div></div>${ic('right')}</a>`; }).join('')
+    : '<div class="empty">Nenhum cliente.</div>'}</div>
+  <div style="height:64px"></div><button class="btn btn-p fab" onclick="modalCliente()">${ic('plus')} Novo cliente</button>`;
+}
+function filtraCli(){ const v = cliBusca; render(); const inp = document.querySelector('.search input'); if (inp) { inp.focus(); inp.setSelectionRange(v.length, v.length); } }
+function vCliente(r){
+  const c = cliente(r.id); if (!c) return `<a class="back" href="#/clientes">${ic('left')} Clientes</a><div class="card empty">Cliente não encontrado.</div>`;
+  const os = S.orcs.filter(o => o.cliente_id === c.id), ss = S.servicos.filter(s => s.cliente_id === c.id);
+  const wa = waLink(c.whatsapp), end = [c.endereco, c.bairro, c.cidade].filter(Boolean).join(', ');
+  const total = ss.filter(s => s.status !== 'cancelado').reduce((t,s) => t + num(s.valor_cobrado), 0);
+  return `
+  <a class="back" href="#/clientes">${ic('left')} Clientes</a>
+  <div class="pg-head"><div><h2 class="pg">${esc(c.nome)}</h2><div class="pg-sub">${ss.length} serviço(s) · ${m$(total)} no total</div></div>
+    <button class="btn btn-sm btn-s" onclick="modalCliente('${c.id}')">${ic('edit')} Editar</button></div>
+  <div class="card">
+    ${wa ? `<a href="${wa}" target="_blank" rel="noopener" style="display:flex;gap:8px;text-decoration:none;font-weight:600;margin-bottom:8px">${ic('phone')} ${esc(c.whatsapp)}</a>` : ''}
+    ${end ? `<a href="${mapsLink(end)}" target="_blank" rel="noopener" style="display:flex;gap:8px;text-decoration:none;color:var(--text2)">${ic('pin')} ${esc(end)}</a>` : ''}
+    ${c.documento ? `<div style="margin-top:8px;color:var(--text2)">CPF/CNPJ: ${esc(c.documento)}</div>` : ''}
+    ${c.observacoes ? `<div style="margin-top:8px;color:var(--text2);white-space:pre-wrap">${esc(c.observacoes)}</div>` : ''}
+    ${!wa && !end && !c.documento && !c.observacoes ? '<div style="color:var(--text3)">Sem contato cadastrado.</div>' : ''}
+  </div>
+  <div class="sec">Serviços</div><div class="list">${ss.length ? ss.map(rowServ).join('') : '<div class="empty">Nenhum serviço.</div>'}</div>
+  <div class="sec">Orçamentos</div><div class="list">${os.length ? os.map(rowOrc).join('') : '<div class="empty">Nenhum orçamento.</div>'}</div>
+  <div class="btns" style="margin-top:14px"><button class="btn btn-p" onclick="novoOrcamentoPara('${c.id}')">${ic('plus')} Orçamento para ${esc(c.nome.split(' ')[0])}</button></div>`;
+}
+const novoOrcamentoPara = cid => novoOrcamento(cid);
+function modalCliente(cid, depois){
+  const c = cid ? cliente(cid) : null;
+  window._cliDepois = depois || null;
+  openModal(c ? 'Editar cliente' : 'Novo cliente', `
+    <div class="field"><label>Nome</label><input class="in" id="cl-nome" value="${esc(c?.nome || '')}"></div>
+    <div class="f2"><div class="field"><label>WhatsApp</label><input class="in" id="cl-wa" inputmode="tel" value="${esc(c?.whatsapp || '')}"></div>
+      <div class="field"><label>CPF/CNPJ</label><input class="in" id="cl-doc" value="${esc(c?.documento || '')}"><div class="hint">Só se for sair no orçamento.</div></div></div>
+    <div class="field"><label>Endereço</label><input class="in" id="cl-end" value="${esc(c?.endereco || '')}"></div>
+    <div class="f2"><div class="field"><label>Bairro</label><input class="in" id="cl-bai" value="${esc(c?.bairro || '')}"></div>
+      <div class="field"><label>Cidade</label><input class="in" id="cl-cid" value="${esc(c?.cidade || '')}" list="cidades-dl"></div></div>
+    <datalist id="cidades-dl">${CIDADES.map(x => `<option value="${x}">`).join('')}</datalist>
+    <div class="field"><label>Observações</label><textarea class="in" id="cl-obs">${esc(c?.observacoes || '')}</textarea></div>
+    <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarCliente(${c ? `'${c.id}'` : 'null'})">Salvar</button>
+      ${c && !S.servicos.some(s => s.cliente_id === c.id) && !S.orcs.some(o => o.cliente_id === c.id) ? `<button class="btn btn-d" onclick="excluirCliente('${c.id}')">${ic('trash')}</button>` : ''}</div>`);
+}
+async function salvarCliente(cid){
+  const nome = fv('cl-nome').trim(); if (!nome) return toast('Coloque o nome.', true);
+  const row = { nome, whatsapp:fv('cl-wa').trim() || null, documento:fv('cl-doc').trim() || null, endereco:fv('cl-end').trim() || null,
+    bairro:fv('cl-bai').trim() || null, cidade:fv('cl-cid').trim() || null, observacoes:fv('cl-obs').trim() || null };
+  const depois = window._cliDepois;
+  const id2 = await act(async () => {
+    if (cid) { const [n] = await db.upd('tdh_clientes', eqId(cid), row); Object.assign(cliente(cid), n); return cid; }
+    const [n] = await db.ins('tdh_clientes', row); S.clientes.push(n); S.clientes.sort((a,b) => a.nome.localeCompare(b.nome)); return n.id;
+  }, 'Salvo.');
+  if (!id2) return;
+  closeModal(); if (depois) depois(id2); else rerender();
+}
+function excluirCliente(cid){ closeModal();
+  confirmar('Excluir cliente', 'Apagar este cadastro?', 'Excluir', async () => {
+    const ok = await act(async () => { await db.del('tdh_clientes', eqId(cid)); S.clientes = S.clientes.filter(c => c.id !== cid); return true; });
+    if (ok) go('#/clientes'); }, true); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   MAIS / CONFIGURAÇÕES
+   ═══════════════════════════════════════════════════════════════════ */
+function vMais(){
+  return `<div class="pg-head"><h2 class="pg">Mais</h2></div>
+  <div class="list">${NAV2.map(([k,i,t]) => `<a class="row" href="#/${k}">${ic(i)}<div class="main"><div class="t">${t}</div></div>${ic('right')}</a>`).join('')}
+    <button class="row" onclick="confirmSair()">${ic('logout')}<div class="main"><div class="t">Sair</div></div></button></div>
+  <div style="text-align:center;margin-top:28px;color:var(--text3);font-size:12.5px"><img src="simbolo.svg" alt="" style="width:40px;height:40px;opacity:.9"><br>Trabalho de Homem · v${APP_VER}</div>`;
+}
+function confirmSair(){ confirmar('Sair', 'Sair do app neste aparelho?', 'Sair', signOut); }
+function vConfig(){
+  const c = S.cfg || {};
+  return `
+  <a class="back" href="#/mais">${ic('left')} Mais</a>
+  <div class="pg-head"><div><h2 class="pg">Configurações</h2><div class="pg-sub">Padrões para os próximos orçamentos. Os já criados não mudam.</div></div></div>
+  <div class="card">
+    <div class="f3"><div class="field"><label>Margem material %</label><input class="in num" id="cf-marg" inputmode="decimal" value="${esc(num(c.margem_material_pct))}"></div>
+      <div class="field"><label>Validade (dias)</label><input class="in num" id="cf-val" inputmode="numeric" value="${esc(c.validade_dias)}"></div>
+      <div class="field"><label>Garantia (dias)</label><input class="in num" id="cf-gar" inputmode="numeric" value="${esc(c.garantia_dias)}"></div></div>
+    <div class="field"><label>CNPJ</label><input class="in" id="cf-cnpj" value="${esc(c.cnpj || '')}"></div>
+    <div class="f2"><div class="field"><label>Tipo de PIX</label><input class="in" id="cf-pixt" value="${esc(c.pix_tipo || '')}"></div>
+      <div class="field"><label>Chave PIX</label><input class="in" id="cf-pix" value="${esc(c.pix_chave || '')}"></div></div>
+    <div class="field"><label>Texto padrão — Execução</label><textarea class="in" id="cf-exe">${esc(c.texto_execucao || '')}</textarea></div>
+    <div class="field"><label>Texto padrão — Garantia</label><textarea class="in" id="cf-gtx">${esc(c.texto_garantia || '')}</textarea><div class="hint">{garantia} vira o número de dias.</div></div>
+    <div class="field"><label>Texto padrão — Imprevistos</label><textarea class="in" id="cf-imp">${esc(c.texto_imprevistos || '')}</textarea></div>
+    <button class="btn btn-p btn-w" onclick="salvarConfig()">Salvar padrões</button>
+  </div>`;
+}
+async function salvarConfig(){
+  const row = { margem_material_pct:parseMoney(fv('cf-marg')), validade_dias:parseInt(onlyDigits(fv('cf-val')) || '15', 10), garantia_dias:parseInt(onlyDigits(fv('cf-gar')) || '90', 10),
+    cnpj:fv('cf-cnpj').trim(), pix_tipo:fv('cf-pixt').trim(), pix_chave:fv('cf-pix').trim(),
+    texto_execucao:fv('cf-exe').trim() || null, texto_garantia:fv('cf-gtx').trim() || null, texto_imprevistos:fv('cf-imp').trim() || null };
+  await act(async () => { const [n] = await db.upd('tdh_config', 'id=eq.1', row); S.cfg = n; }, 'Padrões salvos.');
+}
+
+/* ═══ Início ═════════════════════════════════════════════════════════ */
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if (sess?.access_token) start(); else $('login').classList.remove('hidden');
+</script>
+</body>
+</html>
