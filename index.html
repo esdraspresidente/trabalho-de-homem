@@ -1790,8 +1790,28 @@ function excluirCliente(cid){ closeModal();
 function vMais(){
   return `<div class="pg-head"><h2 class="pg">Mais</h2></div>
   <div class="list">${NAV2.map(([k,i,t]) => `<a class="row" href="#/${k}">${ic(i)}<div class="main"><div class="t">${t}</div></div>${ic('right')}</a>`).join('')}
+    ${instalarHtml()}
     <button class="row" onclick="confirmSair()">${ic('logout')}<div class="main"><div class="t">Sair</div></div></button></div>
   <div style="text-align:center;margin-top:28px;color:var(--text3);font-size:12.5px"><img src="simbolo.svg" alt="" style="width:40px;height:40px;opacity:.9"><br>Trabalho de Homem · v${APP_VER}</div>`;
+}
+/* Instalação como app (Android/Chrome). O Chrome só oferece "Instalar app"
+   no menu depois de um tempo de uso; o evento beforeinstallprompt deixa o
+   app pedir a instalação na hora, com um botão nosso. */
+let _instalar = null;
+const _standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); _instalar = e; if (location.hash === '#/mais') route(); });
+window.addEventListener('appinstalled', () => { _instalar = null; toast('App instalado'); if (location.hash === '#/mais') route(); });
+function instalarHtml(){
+  if (_standalone()) return '';
+  return _instalar
+    ? `<button class="row" onclick="instalarApp()">${ic('plus')}<div class="main"><div class="t">Instalar app no celular</div></div></button>`
+    : `<div class="row" style="cursor:default">${ic('plus')}<div class="main"><div class="t">Instalar app</div><div class="s" style="font-size:12.5px;color:var(--text3)">No Chrome: menu ⋮ → Instalar app (ou Adicionar à tela inicial).</div></div></div>`;
+}
+async function instalarApp(){
+  if (!_instalar) return;
+  _instalar.prompt();
+  await _instalar.userChoice.catch(() => {});
+  _instalar = null;
 }
 function confirmSair(){ confirmar('Sair', 'Sair do app neste aparelho?', 'Sair', signOut); }
 function vConfig(){
