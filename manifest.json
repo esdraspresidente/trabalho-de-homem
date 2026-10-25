@@ -1,8 +1,9 @@
 {
+  "id": "./tdh-app",
   "name": "Trabalho de Homem",
   "short_name": "Trab. de Homem",
   "description": "Orçamentos, serviços, agenda e prestadores do Trabalho de Homem",
-  "start_url": "./?v=1",
+  "start_url": "./?app=2",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0F2238",
@@ -10,7 +11,23 @@
   "orientation": "portrait-primary",
   "lang": "pt-BR",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

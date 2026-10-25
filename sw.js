@@ -9,7 +9,7 @@
  * bibliotecas de PDF passam direto: dado de cliente não fica guardado no
  * aparelho fora do controle do app.
  */
-const CACHE = 'tdh-v1';
+const CACHE = 'tdh-v2';
 const BASE = ['./', './index.html', './manifest.json', './simbolo.svg', './icon-192.png', './icon-512.png', './favicon.png'];
 
 self.addEventListener('install', e => {
