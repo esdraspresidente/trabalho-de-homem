@@ -39,8 +39,10 @@ Não precisou de coluna nova: a trava contra duplicidade é origem + id em
 `fin_movimentacoes.diligencia_id`, e as origens próprias não colidem com as
 diligências. A aba só mostra dados para a conta do Esdras (RLS `is_tdh`).
 
-Pendente: índice único (origem, diligencia_id) no banco, que depende de
-limpar 14 lançamentos de diligência duplicados no Fullfin.
+No banco, o índice único `fin_mov_origem_ref_uniq` (origem, diligencia_id)
+recusa qualquer import duplicado. Antes de criá-lo, em 26/10 foram removidos
+14 lançamentos de diligência duplicados (R$ 1.143), com cópia em
+`backup.fin_mov_duplicadas_20261026`.
 
 ## Ideias que surgiram
 
