@@ -24,19 +24,23 @@ do Esdras.
 4. **Ligar no app.** Preencher `GCAL_FUNCTION` no `index.html` e completar
    `gcalSync()`.
 
-## Fullfin
+## Fullfin — FEITO (Fullfin v3.88, 26/10/2026)
 
-O dinheiro do Trabalho de Homem deve aparecer no Fullfin:
+Aba "Trabalho de Homem" na tela Importar do Fullfin, manual como as outras
+(é você quem escolhe a carteira onde o dinheiro caiu):
 
-- recebimento com `recebido_em` preenchido entra como **receita**;
-- repasse pago entra como **despesa**;
-- os dois no centro de custo novo **"Trabalho de Homem"**.
+- recebimento com `recebido_em` preenchido entra como **receita**
+  (origem `tdh_receb`);
+- repasse com `repasse_status = 'pago'` entra como **despesa** na data
+  `repassado_em` (origem `tdh_repasse`);
+- centro de custo **"Trabalho de Homem"** criado e pré-selecionado na aba.
 
-Isso mexe no `fullfin/index.html`, que está em produção, e precisa de
-confirmação antes. O import de diligências que já existe lá usa
-`fin_movimentacoes.diligencia_id` para não importar duas vezes. O
-Trabalho de Homem precisa de um campo equivalente, para não colidir com os
-ids das diligências.
+Não precisou de coluna nova: a trava contra duplicidade é origem + id em
+`fin_movimentacoes.diligencia_id`, e as origens próprias não colidem com as
+diligências. A aba só mostra dados para a conta do Esdras (RLS `is_tdh`).
+
+Pendente: índice único (origem, diligencia_id) no banco, que depende de
+limpar 14 lançamentos de diligência duplicados no Fullfin.
 
 ## Ideias que surgiram
 
