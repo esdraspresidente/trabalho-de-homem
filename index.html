@@ -381,7 +381,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.1.0';
+const APP_VER = '1.1.1';
 
 /* ═══ Cliente Supabase ═══════════════════════════════════════════════
    Escrito à parte, e não copiado do Diligências, porque o de lá aceita
@@ -1754,6 +1754,17 @@ const MODELOS = {
 };
 // Número sem DDI, para achar repetido mesmo digitado de jeitos diferentes.
 const foneBase = t => { let d = onlyDigits(t); if ((d.length === 12 || d.length === 13) && d.startsWith('55')) d = d.slice(2); return d; };
+// Número que vira link direto para a conversa, igual ao Previmater CRM
+// (foneLink de lá). Abre o WhatsApp sem mensagem pronta: é para falar o que
+// quiser. O botão "WhatsApp" dos Retornos é que leva a mensagem-modelo.
+// stopPropagation: a linha inteira abre a ficha; tocar no número abre só o
+// WhatsApp. Número incompleto (sem DDD) fica como texto, para não virar link
+// que abre conversa com o número errado.
+function foneLink(t){
+  const d = foneBase(t);
+  if (d.length < 10) return esc(t || '');
+  return `<a href="${waLink(d)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--green);font-weight:700;text-decoration:none;white-space:nowrap">${ic('phone')} ${esc(foneFmt(d))}</a>`;
+}
 function foneFmt(t){ const d = foneBase(t);
   return d.length === 11 ? `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}` : d.length === 10 ? `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}` : (t || ''); }
 // Contato pode ter só o número (nome deixou de ser obrigatório).
@@ -1778,11 +1789,11 @@ function filaRet(){
 // Linha com ações embaixo. O nome leva à ficha; os botões agem direto.
 function rowRet(c){
   const atr = c.proximo_contato < hoje(), hj = c.proximo_contato === hoje();
-  const meta = [c.nome && c.whatsapp ? foneFmt(c.whatsapp) : '', [c.bairro, c.cidade].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+  const local = [c.bairro, c.cidade].filter(Boolean).join(', ');
   return `<div class="row" style="flex-wrap:wrap;cursor:default;${atr ? 'box-shadow:inset 3px 0 0 var(--red)' : hj ? 'box-shadow:inset 3px 0 0 var(--yel)' : ''}">
-    <a class="main" href="#/cliente/${c.id}" style="text-decoration:none;color:inherit"><div class="t">${esc(nomeC(c))}</div>
-      <div class="m">${badgeCli(c)}${meta ? ' · ' + esc(meta) : ''}</div>
-      ${c.observacoes ? `<div class="m" style="color:var(--text2);margin-top:4px">${esc(c.observacoes.length > 140 ? c.observacoes.slice(0,140) + '…' : c.observacoes)}</div>` : ''}</a>
+    <div class="main" style="cursor:pointer" onclick="go('#/cliente/${c.id}')"><div class="t">${esc(nomeC(c))}</div>
+      <div class="m">${badgeCli(c)}${c.whatsapp ? ' · ' + foneLink(c.whatsapp) : ''}${local ? ' · ' + esc(local) : ''}</div>
+      ${c.observacoes ? `<div class="m" style="color:var(--text2);margin-top:4px">${esc(c.observacoes.length > 140 ? c.observacoes.slice(0,140) + '…' : c.observacoes)}</div>` : ''}</div>
     <div class="r">${quandoRet(c)}</div>
     <div class="ret-acoes">
       ${waRetorno(c) ? `<button class="btn btn-sm btn-n" style="flex:1.5" onclick="retWhats('${c.id}')">${ic('phone')} WhatsApp</button>` : ''}
@@ -1892,9 +1903,10 @@ function vClientes(){
   <div class="seg" style="margin-bottom:12px">${Object.entries(CLI_F).map(([k,[t,f]]) =>
     `<button class="${k === cliFiltro ? 'on' : ''}" onclick="cliFiltro='${k}';rerender()">${t} · ${S.clientes.filter(f).length}</button>`).join('')}</div>
   <div class="list">${lista.length ? lista.map(c => { const n = S.servicos.filter(s => s.cliente_id === c.id).length;
-    return `<a class="row" href="#/cliente/${c.id}"><div class="main"><div class="t">${esc(nomeC(c))}</div>
-      <div class="m">${badgeCli(c)} ${esc([c.bairro, c.cidade].filter(Boolean).join(' · ') || (c.nome ? foneFmt(c.whatsapp) : ''))}${n ? ` · ${n} serviço(s)` : ''}${c.nao_contatar ? ' · não contatar' : ''}</div></div>
-      <div class="r">${naFila(c) ? quandoRet(c) : ic('right')}</div></a>`; }).join('')
+    const local = [c.bairro, c.cidade].filter(Boolean).join(' · ');
+    return `<div class="row" onclick="go('#/cliente/${c.id}')"><div class="main"><div class="t">${esc(nomeC(c))}</div>
+      <div class="m">${badgeCli(c)}${c.whatsapp ? ' ' + foneLink(c.whatsapp) : ''}${local ? ' · ' + esc(local) : ''}${n ? ` · ${n} serviço(s)` : ''}${c.nao_contatar ? ' · não contatar' : ''}</div></div>
+      <div class="r">${naFila(c) ? quandoRet(c) : ic('right')}</div></div>`; }).join('')
     : '<div class="empty">Nenhum contato.</div>'}</div>
   <div style="height:64px"></div><button class="btn btn-p fab" onclick="modalCliente(null, null, { status:'conversando', proximo_contato:addDias(hoje(), 2) })">${ic('plus')} Novo contato</button>`;
 }
@@ -1922,7 +1934,7 @@ function vCliente(r){
       ${!['perdido','adormecido','fechado'].includes(c.status) ? `<button class="btn btn-sm btn-d" onclick="retPerdeu('${c.id}')">Perdeu</button>` : ''}</div>` : ''}
   </div>
   <div class="card">
-    ${wa ? `<a href="${wa}" target="_blank" rel="noopener" style="display:flex;gap:8px;text-decoration:none;font-weight:600;margin-bottom:8px">${ic('phone')} ${esc(foneFmt(c.whatsapp))}</a>` : ''}
+    ${wa ? `<div style="margin-bottom:8px;font-size:15px">${foneLink(c.whatsapp)}</div>` : ''}
     ${end ? `<a href="${mapsLink(end)}" target="_blank" rel="noopener" style="display:flex;gap:8px;text-decoration:none;color:var(--text2)">${ic('pin')} ${esc(end)}</a>` : ''}
     ${c.documento ? `<div style="margin-top:8px;color:var(--text2)">CPF/CNPJ: ${esc(c.documento)}</div>` : ''}
     ${c.observacoes ? `<div style="margin-top:8px;color:var(--text2);white-space:pre-wrap">${esc(c.observacoes)}</div>` : ''}
@@ -1944,7 +1956,7 @@ function modalCliente(cid, depois, pre){
   openModal(cid ? 'Editar cliente' : 'Novo contato', `
     <div class="f2"><div class="field"><label>Nome</label><input class="in" id="cl-nome" value="${esc(c?.nome || '')}"></div>
       <div class="field"><label>WhatsApp</label><input class="in" id="cl-wa" inputmode="tel" value="${esc(c?.whatsapp || '')}" oninput="cliDup('${cid || ''}')"></div></div>
-    <div id="cl-dup"></div>
+    <div id="cl-walink"></div><div id="cl-dup"></div>
     <div class="hint" style="margin:-6px 0 10px">Basta o nome ou o WhatsApp. O resto é opcional.</div>
     <div class="f2"><div class="field"><label>Status</label><select class="in" id="cl-st">${Object.entries(ST_CLI).map(([k,[t]]) =>
         `<option value="${k}" ${k === (c?.status || 'novo') ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
@@ -1975,6 +1987,8 @@ function cliRap(n){
 function cliDup(cid){
   const d = foneBase(fv('cl-wa'));
   const o = d.length >= 10 && S.clientes.find(x => x.id !== cid && foneBase(x.whatsapp) === d);
+  // Atalho para a conversa já no cadastro: dá para salvar e chamar em seguida.
+  $('cl-walink').innerHTML = d.length >= 10 ? `<div style="margin:-6px 0 10px;font-size:13.5px">Abrir conversa: ${foneLink(d)}</div>` : '';
   $('cl-dup').innerHTML = o ? `<div class="warn">${ic('alert')}<span>Esse número já está cadastrado: <a href="#/cliente/${o.id}" style="color:inherit;font-weight:700">${esc(nomeC(o))}</a></span></div>` : '';
 }
 async function salvarCliente(cid){
