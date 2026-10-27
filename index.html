@@ -154,6 +154,9 @@ h2.pg{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;l
 .btn-sm{padding:8px 11px;font-size:13px;border-radius:10px}
 .btn-w{width:100%}
 .btns{display:flex;flex-wrap:wrap;gap:8px}
+/* Ações do retorno: sempre numa linha só, dividindo a largura. */
+.ret-acoes{display:flex;gap:6px;width:100%}
+.ret-acoes .btn{flex:1;padding:8px 4px}
 .fab{position:fixed;right:16px;bottom:calc(var(--tab-h) + 16px + env(safe-area-inset-bottom));z-index:15;
   border-radius:16px;padding:14px 18px;box-shadow:0 10px 24px -10px rgba(15,34,56,.55)}
 @media (min-width:900px){.fab{bottom:24px;right:28px}}
@@ -378,7 +381,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.0.0';
+const APP_VER = '1.1.0';
 
 /* ═══ Cliente Supabase ═══════════════════════════════════════════════
    Escrito à parte, e não copiado do Diligências, porque o de lá aceita
@@ -535,7 +538,7 @@ const S = {
   dil:[], blq:[], dilOk:true,
 };
 const TAB = {
-  clientes:['tdh_clientes','&order=nome.asc'], prestadores:['tdh_prestadores','&order=nome.asc'],
+  clientes:['tdh_clientes','&order=nome.asc.nullslast'], prestadores:['tdh_prestadores','&order=nome.asc'],
   orcs:['tdh_orcamentos','&order=created_at.desc'], itens:['tdh_orcamento_itens','&order=ordem.asc'],
   servicos:['tdh_servicos','&order=created_at.desc'], agendas:['tdh_agendas','&order=data.asc,horario_inicio.asc'],
   receb:['tdh_recebimentos','&order=created_at.asc'], vinc:['tdh_servico_prestadores','&order=created_at.asc'],
@@ -664,8 +667,10 @@ function onSignedOut(){
 
 /* ═══ Navegação ══════════════════════════════════════════════════════
    Rotas no #hash para o botão "voltar" do Android funcionar como esperado. */
+// Retornos na barra de baixo, e não em "Mais": é a tela de uso diário
+// para não deixar orçamento e contato esfriarem.
 const NAV = [
-  ['painel','home','Painel'], ['agenda','cal','Agenda'], ['orcamentos','file','Orçamentos'], ['servicos','wrench','Serviços'],
+  ['painel','home','Painel'], ['retornos','phone','Retornos'], ['agenda','cal','Agenda'], ['orcamentos','file','Orçamentos'], ['servicos','wrench','Serviços'],
 ];
 const NAV2 = [['prestadores','users','Prestadores'], ['clientes','user','Clientes'], ['config','cfg','Configurações']];
 function buildNav(){
@@ -691,7 +696,7 @@ function render(){
   const naMais = ['prestadores','clientes','config','mais','cliente'].includes(r.page);
   document.querySelectorAll('#tabs a').forEach(a => a.classList.toggle('on', a.dataset.k === sec || (a.dataset.k === 'mais' && naMais)));
   document.querySelectorAll('#side a').forEach(a => a.classList.toggle('on', a.dataset.k === sec));
-  const V = { painel:vPainel, agenda:vAgenda, orcamentos:vOrcamentos, orc:vOrc, servicos:vServicos, serv:vServ,
+  const V = { painel:vPainel, retornos:vRetornos, agenda:vAgenda, orcamentos:vOrcamentos, orc:vOrc, servicos:vServicos, serv:vServ,
     prestadores:vPrestadores, clientes:vClientes, cliente:vCliente, config:vConfig, mais:vMais };
   const fn = V[r.page] || vPainel;
   $('view').innerHTML = `<div class="wrap">${fn(r)}</div>`;
@@ -743,6 +748,7 @@ function vPainel(){
     .sort((x,y) => (x.data + (x.ini||'')).localeCompare(y.data + (y.ini||'')));
   return `
   <div class="pg-head"><div><h2 class="pg">${saud}, Esdras</h2><div class="pg-sub">${fmtDataLonga(h)}</div></div></div>
+  ${painelRetornos()}
   <div class="grid2">
     <a class="kpi hi" href="#/servicos"><div class="k">A receber</div><div class="v">${m$(aReceber)}</div>
       <div class="s">${pend.length} lançamento(s)${atras.length ? ` · <b style="color:#FFB4B4">${atras.length} atrasado(s)</b>` : ''}</div></a>
@@ -767,7 +773,7 @@ function datePill(s){ const d = parseISO(s); return `<div class="date-pill"><b>$
 function rowAgendaMista(x){
   if (x.k === 'tdh') { const a = x.a, s = serv(a.servico_id), c = cliente(s?.cliente_id);
     return `<a class="row tag-tdh" href="#/serv/${s.id}">${datePill(a.data)}<div class="main"><div class="t">${esc(s.descricao)}</div>
-      <div class="m">${horaFaixa(a)}${c ? ' · ' + esc(c.nome) : ''}${s.bairro ? ' · ' + esc(s.bairro) : ''}</div></div>${badgeServ(s)}</a>`; }
+      <div class="m">${horaFaixa(a)}${c ? ' · ' + esc(nomeC(c)) : ''}${s.bairro ? ' · ' + esc(s.bairro) : ''}</div></div>${badgeServ(s)}</a>`; }
   const d = x.d;
   return `<div class="row tag-dil" style="cursor:default">${datePill(d.data)}<div class="main"><div class="t">${esc(d.descricao || 'Diligência')}</div>
     <div class="m">${d.horario ? hhmm(d.horario) : 'Sem horário'}${d.local ? ' · ' + esc(d.local) : ''}</div></div><span class="badge b-navy">Diligência</span></div>`;
@@ -824,7 +830,7 @@ function diaHtml(ds){
   const itens = [
     ...ag.map(a => ({ t:a.horario_inicio || '', h:() => { const s = serv(a.servico_id), c = cliente(s.cliente_id);
       return `<a class="row tag-tdh" href="#/serv/${s.id}"><div class="main"><div class="t">${esc(s.descricao)}</div>
-      <div class="m">${horaFaixa(a)}${c ? ' · ' + esc(c.nome) : ''}${s.endereco ? ' · ' + esc(s.endereco) : ''}</div></div>${badgeServ(s)}</a>`; } })),
+      <div class="m">${horaFaixa(a)}${c ? ' · ' + esc(nomeC(c)) : ''}${s.endereco ? ' · ' + esc(s.endereco) : ''}</div></div>${badgeServ(s)}</a>`; } })),
     ...dl.map(d => ({ t:d.horario || '', h:() => `<div class="row tag-dil" style="cursor:default"><div class="main"><div class="t">${esc(d.descricao || 'Diligência')}</div>
       <div class="m">${d.horario ? hhmm(d.horario) : 'Sem horário'}${d.local ? ' · ' + esc(d.local) : ''}</div></div><span class="badge b-navy">Diligência</span></div>` })),
     ...bl.map(b => ({ t:b.horario_inicio || '', h:() => `<div class="row tag-blq" style="cursor:default"><div class="main"><div class="t">${esc(b.motivo || 'Bloqueio')}</div>
@@ -920,7 +926,7 @@ function vOrc(r){
   <div class="card">
     <div class="field"><label>Cliente</label>
       <div style="display:flex;gap:8px"><select class="in" id="o-cli" ${dis} onchange="orcSetCliente('${o.id}', this.value)">
-        <option value="">— escolher —</option>${S.clientes.map(x => `<option value="${x.id}" ${x.id === o.cliente_id ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}
+        <option value="">— escolher —</option>${S.clientes.map(x => `<option value="${x.id}" ${x.id === o.cliente_id ? 'selected' : ''}>${esc(nomeC(x))}</option>`).join('')}
       </select>${ed ? `<button class="btn btn-s btn-sm" onclick="modalCliente(null, cid => orcSetCliente('${o.id}', cid))">${ic('plus')}</button>` : ''}</div>
       ${!o.cliente_id && o.cliente_nome ? `<div class="hint">No documento: ${esc(o.cliente_nome)}</div>` : ''}</div>
     <div class="field"><label>Local do serviço</label>
@@ -1353,7 +1359,7 @@ function filtraServ(){ const y = window.scrollY; const v = servBusca; render(); 
 function rowServ(s){
   const c = cliente(s.cliente_id), t = totaisServ(s.id), ag = agendasDe(s.id), prox = ag.find(a => a.data >= hoje()) || ag[ag.length-1];
   return `<a class="row" href="#/serv/${s.id}"><div class="main"><div class="t">${esc(s.descricao)}</div>
-    <div class="m">${badgeServ(s)} ${c ? esc(c.nome) : ''}${prox ? ' · ' + fmtData(prox.data) : ''}${t.aReceber > 0.005 ? ` · <span style="color:var(--red)">falta receber <span class="money">${money(t.aReceber)}</span></span>` : ''}</div></div>
+    <div class="m">${badgeServ(s)} ${c ? esc(nomeC(c)) : ''}${prox ? ' · ' + fmtData(prox.data) : ''}${t.aReceber > 0.005 ? ` · <span style="color:var(--red)">falta receber <span class="money">${money(t.aReceber)}</span></span>` : ''}</div></div>
     <div class="r val">${m$(s.valor_cobrado)}</div></a>`;
 }
 
@@ -1362,7 +1368,7 @@ function modalNovoServico(data){
     <p style="color:var(--text3);font-size:13px;margin:-6px 0 12px">Para serviço rápido, sem orçamento. Se tiver orçamento, aprove por lá que o serviço nasce sozinho.</p>
     <div class="field"><label>O que vai ser feito</label><input class="in" id="ns-desc" placeholder="Ex.: Troca de chuveiro"></div>
     <div class="field"><label>Cliente</label><div style="display:flex;gap:8px"><select class="in" id="ns-cli" onchange="nsCli()">
-      <option value="">— sem cadastro —</option>${S.clientes.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('')}</select>
+      <option value="">— sem cadastro —</option>${S.clientes.map(c => `<option value="${c.id}">${esc(nomeC(c))}</option>`).join('')}</select>
       <button class="btn btn-s btn-sm" onclick="nsNovoCliente()">${ic('plus')}</button></div></div>
     <div class="field"><label>Endereço</label><input class="in" id="ns-end"></div>
     <div class="f2"><div class="field"><label>Bairro</label><input class="in" id="ns-bai"></div><div class="field"><label>Cidade</label><input class="in" id="ns-cid"></div></div>
@@ -1419,7 +1425,7 @@ function vServ(r){
     <button class="btn btn-sm btn-s" onclick="modalEditServ('${s.id}')">${ic('edit')} Editar</button></div>
 
   <div class="card">
-    ${c ? `<div style="display:flex;align-items:center;gap:10px;margin-bottom:${end ? 10 : 0}px"><div style="flex:1"><div class="lbl">Cliente</div><a href="#/cliente/${c.id}" style="font-weight:700;text-decoration:none">${esc(c.nome)}</a></div>
+    ${c ? `<div style="display:flex;align-items:center;gap:10px;margin-bottom:${end ? 10 : 0}px"><div style="flex:1"><div class="lbl">Cliente</div><a href="#/cliente/${c.id}" style="font-weight:700;text-decoration:none">${esc(nomeC(c))}</a></div>
       ${wa ? `<a class="btn btn-sm btn-s" href="${wa}" target="_blank" rel="noopener">${ic('phone')} WhatsApp</a>` : ''}</div>` : '<div class="lbl" style="margin-bottom:6px">Sem cliente cadastrado</div>'}
     ${end ? `<a href="${mapsLink(end)}" target="_blank" rel="noopener" style="display:flex;gap:8px;color:var(--text2);text-decoration:none;font-size:14px">${ic('pin')}<span>${esc(end)}</span></a>` : ''}
     ${s.observacoes ? `<div style="margin-top:10px;font-size:14px;color:var(--text2);white-space:pre-wrap">${esc(s.observacoes)}</div>` : ''}
@@ -1473,7 +1479,7 @@ function modalEditServ(sid){
   openModal('Editar serviço', `
     <div class="field"><label>Descrição</label><input class="in" id="es-desc" value="${esc(s.descricao)}"></div>
     <div class="field"><label>Cliente</label><select class="in" id="es-cli"><option value="">— sem cadastro —</option>
-      ${S.clientes.map(c => `<option value="${c.id}" ${c.id === s.cliente_id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select></div>
+      ${S.clientes.map(c => `<option value="${c.id}" ${c.id === s.cliente_id ? 'selected' : ''}>${esc(nomeC(c))}</option>`).join('')}</select></div>
     <div class="field"><label>Endereço</label><input class="in" id="es-end" value="${esc(s.endereco || '')}"></div>
     <div class="f2"><div class="field"><label>Bairro</label><input class="in" id="es-bai" value="${esc(s.bairro || '')}"></div>
       <div class="field"><label>Cidade</label><input class="in" id="es-cid" value="${esc(s.cidade || '')}"></div></div>
@@ -1714,21 +1720,183 @@ async function toggleAtivoPrest(pid){
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   CLIENTES
+   CLIENTES E RETORNOS
    ═══════════════════════════════════════════════════════════════════ */
-let cliBusca = '';
+/* ── Retornos (acompanhamento de contatos) ──────────────────────────
+   Todo cliente é também um contato que pode ser chamado de volta. Não
+   existe tabela de "leads" separada: com duas, quem fecha serviço ficaria
+   cadastrado duas vezes, e a reciclagem mandaria "tem algum serviço pra
+   mim?" para quem está com obra em andamento.
+
+   As regras automáticas moram no BANCO (previmater-ops/_sql/
+   tdh_02_followup.sql), não aqui:
+     orçamento enviado → retorno em 2 dias; aprovado → limpa o retorno;
+     recusado / perdido / adormecido → volta em 150 dias;
+     serviço executado → pós-venda em 75 dias; "não quer contato" → nunca.
+   O app só grava status e datas. Assim a regra vale igual vindo desta
+   tela, da emissão de um orçamento ou de qualquer outro lugar. Por isso,
+   depois de gravar, o app usa a linha que o banco DEVOLVE (já com a data
+   que o trigger calculou), e não a que mandou.
+   Prazos editáveis em Configurações (tdh_config.followup_*).
+   O resumo por e-mail das 07:30 é a function tdh-followup. */
+const ST_CLI = { novo:['Novo','b-blue'], conversando:['Conversando','b-yel'], orcamento_enviado:['Orçamento enviado','b-navy'],
+  fechado:['Fechado','b-green'], perdido:['Perdido','b-red'], adormecido:['Adormecido','b-gray'] };
+const ORIGENS = ['Indicação','Instagram','Facebook','Google','Vídeo','WhatsApp','Panfleto/placa','Cliente antigo','Outro'];
+// Mesmas mensagens do e-mail (function tdh-followup, constante MODELOS).
+// Mudou uma, muda a outra.
+const MODELOS = {
+  novo:'Oi{nome}, tudo bem? Aqui é o Esdras, do Trabalho de Homem. Conseguiu pensar naquele serviço? Se quiser, já te passo um orçamento.',
+  conversando:'Oi{nome}, tudo bem? Aqui é o Esdras, do Trabalho de Homem. Conseguiu pensar naquele serviço? Se quiser, já te passo um orçamento.',
+  orcamento_enviado:'Oi{nome}, tudo bem? Aqui é o Esdras, do Trabalho de Homem. Conseguiu ver o orçamento que te mandei? Qualquer dúvida, estou à disposição.',
+  fechado:'Oi{nome}, tudo bem? Aqui é o Esdras, do Trabalho de Homem. Passando para saber se ficou tudo certo com o serviço e se tem mais alguma coisa que eu possa resolver para você.',
+  perdido:'Oi{nome}, tudo bem? Aqui é o Esdras, do Trabalho de Homem. Passando para lembrar que sigo atendendo Pinhais, Curitiba e região. Precisando de algum reparo, é só chamar!',
+  adormecido:'Oi{nome}, tudo bem? Aqui é o Esdras, do Trabalho de Homem. Passando para lembrar que sigo atendendo Pinhais, Curitiba e região. Precisando de algum reparo, é só chamar!',
+};
+// Número sem DDI, para achar repetido mesmo digitado de jeitos diferentes.
+const foneBase = t => { let d = onlyDigits(t); if ((d.length === 12 || d.length === 13) && d.startsWith('55')) d = d.slice(2); return d; };
+function foneFmt(t){ const d = foneBase(t);
+  return d.length === 11 ? `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}` : d.length === 10 ? `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}` : (t || ''); }
+// Contato pode ter só o número (nome deixou de ser obrigatório).
+const nomeC = c => c?.nome || foneFmt(c?.whatsapp) || 'Sem nome';
+const badgeCli = c => `<span class="badge ${ST_CLI[c.status]?.[1] || 'b-gray'}">${ST_CLI[c.status]?.[0] || c.status}</span>`;
+function waRetorno(c){ const p = (c.nome || '').trim().split(/\s+/)[0];
+  return waLink(c.whatsapp, (MODELOS[c.status] || MODELOS.conversando).replace('{nome}', p ? ' ' + p : '')); }
+const naFila = c => c.proximo_contato && !c.nao_contatar;
+function quandoRet(c){
+  if (!c.proximo_contato) return '';
+  const d = Math.round((parseISO(hoje()) - parseISO(c.proximo_contato)) / 86400000);
+  if (d > 0) return `<b style="color:var(--red);font-size:12.5px;white-space:nowrap">atrasado ${d} dia${d > 1 ? 's' : ''}</b>`;
+  if (d === 0) return `<b style="color:#8A5A06;font-size:12.5px">hoje</b>`;
+  if (d === -1) return `<span style="color:var(--text3);font-size:12.5px">amanhã</span>`;
+  return `<span style="color:var(--text3);font-size:12.5px;white-space:nowrap">${DSEM[parseISO(c.proximo_contato).getDay()]} ${fmtData(c.proximo_contato).slice(0,5)}</span>`;
+}
+function filaRet(){
+  const h = hoje(), sem = addDias(h, 7);
+  const f = S.clientes.filter(naFila).sort((a,b) => a.proximo_contato.localeCompare(b.proximo_contato));
+  return { atr:f.filter(c => c.proximo_contato < h), hj:f.filter(c => c.proximo_contato === h), prox:f.filter(c => c.proximo_contato > h && c.proximo_contato <= sem) };
+}
+// Linha com ações embaixo. O nome leva à ficha; os botões agem direto.
+function rowRet(c){
+  const atr = c.proximo_contato < hoje(), hj = c.proximo_contato === hoje();
+  const meta = [c.nome && c.whatsapp ? foneFmt(c.whatsapp) : '', [c.bairro, c.cidade].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+  return `<div class="row" style="flex-wrap:wrap;cursor:default;${atr ? 'box-shadow:inset 3px 0 0 var(--red)' : hj ? 'box-shadow:inset 3px 0 0 var(--yel)' : ''}">
+    <a class="main" href="#/cliente/${c.id}" style="text-decoration:none;color:inherit"><div class="t">${esc(nomeC(c))}</div>
+      <div class="m">${badgeCli(c)}${meta ? ' · ' + esc(meta) : ''}</div>
+      ${c.observacoes ? `<div class="m" style="color:var(--text2);margin-top:4px">${esc(c.observacoes.length > 140 ? c.observacoes.slice(0,140) + '…' : c.observacoes)}</div>` : ''}</a>
+    <div class="r">${quandoRet(c)}</div>
+    <div class="ret-acoes">
+      ${waRetorno(c) ? `<button class="btn btn-sm btn-n" style="flex:1.5" onclick="retWhats('${c.id}')">${ic('phone')} WhatsApp</button>` : ''}
+      <button class="btn btn-sm btn-s" onclick="folhaRet('${c.id}')">Adiar</button>
+      <button class="btn btn-sm btn-s" onclick="retFechou('${c.id}')">Fechou</button>
+      <button class="btn btn-sm btn-d" onclick="retPerdeu('${c.id}')">Perdeu</button>
+    </div></div>`;
+}
+// Versão curta para o Painel: o painel também mostra dinheiro e agenda,
+// e a lista completa com botões está a um toque, em Retornos.
+function rowRetCurta(c){
+  const wa = waRetorno(c);
+  return `<div class="row" style="cursor:default"><a class="main" href="#/cliente/${c.id}" style="text-decoration:none;color:inherit">
+    <div class="t">${esc(nomeC(c))}</div><div class="m">${badgeCli(c)} ${quandoRet(c)}</div></a>
+    ${wa ? `<button class="btn btn-sm btn-n" onclick="retWhats('${c.id}')" title="Chamar no WhatsApp">${ic('phone')}</button>` : ''}</div>`;
+}
+function painelRetornos(){
+  const { atr, hj } = filaRet(), l = [...atr, ...hj];
+  return `<div class="sec" style="margin-top:4px">Retornos de hoje <a class="lnk" href="#/retornos">Ver todos</a></div>
+    <div class="list" style="margin-bottom:12px">${l.length ? l.slice(0, 5).map(rowRetCurta).join('')
+      + (l.length > 5 ? `<a class="row" href="#/retornos"><div class="main"><div class="t" style="color:var(--blue)">Mais ${l.length - 5}…</div></div>${ic('right')}</a>` : '')
+      : '<div class="empty">Nenhum retorno para hoje.</div>'}</div>`;
+}
+function vRetornos(){
+  const { atr, hj, prox } = filaRet();
+  const sec = (t, l) => l.length ? `<div class="sec">${t} · ${l.length}</div><div class="list">${l.map(rowRet).join('')}</div>` : '';
+  const corpo = sec('Atrasados', atr) + sec('Para hoje', hj) + sec('Próximos 7 dias', prox);
+  return `
+  <div class="pg-head"><div><h2 class="pg">Retornos</h2><div class="pg-sub">Quem chamar de volta</div></div>
+    <a class="btn btn-sm btn-s" href="#/clientes">Todos os contatos</a></div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+    <div class="kpi"><div class="k">Atrasados</div><div class="v" style="${atr.length ? 'color:var(--red)' : ''}">${atr.length}</div></div>
+    <div class="kpi"><div class="k">Hoje</div><div class="v">${hj.length}</div></div>
+    <div class="kpi"><div class="k">Próx. 7 dias</div><div class="v">${prox.length}</div></div>
+  </div>
+  ${corpo || `<div class="card empty" style="margin-top:12px">${S.clientes.length ? 'Nenhum retorno pendente.' : 'Nenhum contato ainda.'}<br>
+    Cadastre quem você atendeu no WhatsApp para o app lembrar de chamar de volta.</div>`}
+  <div style="height:64px"></div><button class="btn btn-p fab" onclick="modalCliente(null, null, { status:'conversando', proximo_contato:addDias(hoje(), 2) })">${ic('plus')} Novo contato</button>`;
+}
+async function gravaCli(cid, patch, msg){
+  return act(async () => { const [n] = await db.upd('tdh_clientes', eqId(cid), patch); Object.assign(cliente(cid), n); return n; }, msg);
+}
+async function retWhats(cid){
+  const c = cliente(cid); window.open(waRetorno(c), '_blank', 'noopener');
+  // Abrir a conversa conta como contato feito. Em seguida pergunta o
+  // próximo passo, para o retorno de hoje não ficar pendurado na fila.
+  await gravaCli(cid, { ultimo_contato:hoje() });
+  folhaRet(cid, true);
+}
+function folhaRet(cid, posWhats){
+  const c = cliente(cid);
+  // Depois do WhatsApp, "conversando" é o status provável de quem era novo.
+  const prom = posWhats && c.status === 'novo' ? `'conversando'` : 'null';
+  openModal(posWhats ? 'E aí, como ficou?' : 'Adiar retorno', `
+    <p style="color:var(--text2);margin:-6px 0 12px">${esc(nomeC(c))}</p>
+    <div class="chips">${[['Amanhã',1],['+3 dias',3],['+7 dias',7],['+15 dias',15],['+30 dias',30]].map(([t,n]) =>
+      `<button class="chip" onclick="retRemarcar('${cid}', ${n}, ${prom})">${t}</button>`).join('')}</div>
+    <div class="field" style="margin-top:12px"><label>Outra data</label>
+      <div style="display:flex;gap:8px"><input class="in" type="date" id="rt-data" min="${hoje()}"><button class="btn btn-n" onclick="retData('${cid}', ${prom})">OK</button></div></div>
+    <div class="btns">
+      ${posWhats && c.status !== 'orcamento_enviado' ? `<button class="btn btn-sm btn-s" onclick="retOrc('${cid}')">Mandei orçamento</button>` : ''}
+      <button class="btn btn-sm btn-p" onclick="retFechou('${cid}')">Fechou</button>
+      <button class="btn btn-sm btn-d" onclick="retPerdeu('${cid}')">Perdeu</button>
+      <button class="btn btn-sm btn-g" onclick="retRemarcar('${cid}', null, ${prom})">Sem data</button>
+    </div>`);
+}
+const fimRet = n => { closeModal(); if (n) rerender(); };
+const dataCurta = s => `${DSEM[parseISO(s).getDay()]} ${fmtData(s).slice(0,5)}`;
+async function retRemarcar(cid, dias, status){
+  const patch = { proximo_contato: dias === null ? null : addDias(hoje(), dias) };
+  if (status) patch.status = status;
+  const n = await gravaCli(cid, patch);
+  if (n) toast(n.proximo_contato ? `Retorno ${dataCurta(n.proximo_contato)}.` : 'Sem retorno marcado.');
+  fimRet(n);
+}
+function retData(cid, status){ const v = fv('rt-data'); if (!v) return toast('Escolha a data.', true);
+  retRemarcar(cid, Math.round((parseISO(v) - parseISO(hoje())) / 86400000), status); }
+// Sem mandar data: o banco aplica o prazo de orçamento.
+async function retOrc(cid){ const n = await gravaCli(cid, { status:'orcamento_enviado' });
+  if (n) toast(`Orçamento enviado. Retorno ${dataCurta(n.proximo_contato)}.`); fimRet(n); }
+// Fechou por fora (sem passar por orçamento e serviço no app): o pós-venda
+// nasce aqui. Se depois o serviço for marcado executado, o banco só troca
+// a data se a nova for mais cedo.
+async function retFechou(cid){
+  const dias = num(S.cfg?.followup_posvenda_dias) || 75;
+  const n = await gravaCli(cid, { status:'fechado', ultimo_contato:hoje(), proximo_contato:addDias(hoje(), dias) });
+  if (n) toast(`Fechado! Pós-venda ${dataCurta(n.proximo_contato)}.`); fimRet(n);
+}
+// Sem mandar data: o banco aplica a reciclagem.
+async function retPerdeu(cid){ const n = await gravaCli(cid, { status:'perdido' });
+  if (n) toast(n.proximo_contato ? `Perdido. Volta para a fila ${fmtData(n.proximo_contato)}.` : 'Marcado como perdido.'); fimRet(n); }
+
+/* ── Lista e ficha ────────────────────────────────────────────────── */
+let cliBusca = '', cliFiltro = 'todos';
+// "Em andamento" = quem ainda pode virar serviço agora.
+const CLI_F = { todos:['Todos', () => true], andamento:['Em andamento', c => ['novo','conversando','orcamento_enviado'].includes(c.status) && !c.nao_contatar],
+  fechado:['Fechados', c => c.status === 'fechado'], parado:['Perdidos', c => c.status === 'perdido' || c.status === 'adormecido'] };
 function vClientes(){
-  const b = cliBusca.toLowerCase();
-  const lista = S.clientes.filter(c => !b || (c.nome + ' ' + (c.bairro || '') + ' ' + onlyDigits(c.whatsapp)).toLowerCase().includes(b));
+  const b = cliBusca.toLowerCase(), bd = onlyDigits(cliBusca);
+  const lista = S.clientes.filter(CLI_F[cliFiltro][1]).filter(c => !b ||
+    [c.nome, c.bairro, c.cidade, c.observacoes, c.origem].some(v => (v || '').toLowerCase().includes(b)) || (bd.length >= 3 && onlyDigits(c.whatsapp).includes(bd)))
+    .sort((x,y) => nomeC(x).localeCompare(nomeC(y)));
   return `
   <a class="back" href="#/mais">${ic('left')} Mais</a>
-  <div class="pg-head"><h2 class="pg">Clientes</h2></div>
-  <div class="search">${ic('search')}<input class="in" placeholder="Buscar nome, bairro, telefone" value="${esc(cliBusca)}" oninput="cliBusca=this.value;filtraCli()"></div>
+  <div class="pg-head"><h2 class="pg">Clientes e contatos</h2></div>
+  <div class="search">${ic('search')}<input class="in" placeholder="Buscar nome, bairro, telefone, observação" value="${esc(cliBusca)}" oninput="cliBusca=this.value;filtraCli()"></div>
+  <div class="seg" style="margin-bottom:12px">${Object.entries(CLI_F).map(([k,[t,f]]) =>
+    `<button class="${k === cliFiltro ? 'on' : ''}" onclick="cliFiltro='${k}';rerender()">${t} · ${S.clientes.filter(f).length}</button>`).join('')}</div>
   <div class="list">${lista.length ? lista.map(c => { const n = S.servicos.filter(s => s.cliente_id === c.id).length;
-    return `<a class="row" href="#/cliente/${c.id}"><div class="main"><div class="t">${esc(c.nome)}</div>
-      <div class="m">${esc([c.bairro, c.cidade].filter(Boolean).join(' · ') || c.whatsapp || '')}${n ? ` · ${n} serviço(s)` : ''}</div></div>${ic('right')}</a>`; }).join('')
-    : '<div class="empty">Nenhum cliente.</div>'}</div>
-  <div style="height:64px"></div><button class="btn btn-p fab" onclick="modalCliente()">${ic('plus')} Novo cliente</button>`;
+    return `<a class="row" href="#/cliente/${c.id}"><div class="main"><div class="t">${esc(nomeC(c))}</div>
+      <div class="m">${badgeCli(c)} ${esc([c.bairro, c.cidade].filter(Boolean).join(' · ') || (c.nome ? foneFmt(c.whatsapp) : ''))}${n ? ` · ${n} serviço(s)` : ''}${c.nao_contatar ? ' · não contatar' : ''}</div></div>
+      <div class="r">${naFila(c) ? quandoRet(c) : ic('right')}</div></a>`; }).join('')
+    : '<div class="empty">Nenhum contato.</div>'}</div>
+  <div style="height:64px"></div><button class="btn btn-p fab" onclick="modalCliente(null, null, { status:'conversando', proximo_contato:addDias(hoje(), 2) })">${ic('plus')} Novo contato</button>`;
 }
 function filtraCli(){ const v = cliBusca; render(); const inp = document.querySelector('.search input'); if (inp) { inp.focus(); inp.setSelectionRange(v.length, v.length); } }
 function vCliente(r){
@@ -1736,12 +1904,25 @@ function vCliente(r){
   const os = S.orcs.filter(o => o.cliente_id === c.id), ss = S.servicos.filter(s => s.cliente_id === c.id);
   const wa = waLink(c.whatsapp), end = [c.endereco, c.bairro, c.cidade].filter(Boolean).join(', ');
   const total = ss.filter(s => s.status !== 'cancelado').reduce((t,s) => t + num(s.valor_cobrado), 0);
+  const primeiro = (c.nome || '').trim().split(/\s+/)[0];
   return `
   <a class="back" href="#/clientes">${ic('left')} Clientes</a>
-  <div class="pg-head"><div><h2 class="pg">${esc(c.nome)}</h2><div class="pg-sub">${ss.length} serviço(s) · ${m$(total)} no total</div></div>
+  <div class="pg-head"><div><h2 class="pg">${esc(nomeC(c))}</h2><div class="pg-sub">${ss.length} serviço(s) · ${m$(total)} no total</div></div>
     <button class="btn btn-sm btn-s" onclick="modalCliente('${c.id}')">${ic('edit')} Editar</button></div>
   <div class="card">
-    ${wa ? `<a href="${wa}" target="_blank" rel="noopener" style="display:flex;gap:8px;text-decoration:none;font-weight:600;margin-bottom:8px">${ic('phone')} ${esc(c.whatsapp)}</a>` : ''}
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${badgeCli(c)}${c.nao_contatar ? '<span class="badge b-gray">Não quer contato</span>' : ''}
+      ${c.origem ? `<span style="color:var(--text3);font-size:13px">veio por ${esc(c.origem)}</span>` : ''}</div>
+    <div style="margin-top:8px;font-size:14px;color:var(--text2)">
+      ${c.nao_contatar ? 'Fora da fila de retornos.' : c.proximo_contato ? `Próximo contato: ${fmtData(c.proximo_contato)} ${quandoRet(c)}` : 'Sem retorno marcado.'}
+      ${c.ultimo_contato ? `<br>Último contato: ${fmtData(c.ultimo_contato)}` : ''}</div>
+    ${!c.nao_contatar ? `<div class="btns" style="margin-top:12px">
+      ${waRetorno(c) ? `<button class="btn btn-sm btn-n" onclick="retWhats('${c.id}')">${ic('phone')} Chamar de volta</button>` : ''}
+      <button class="btn btn-sm btn-s" onclick="folhaRet('${c.id}')">Marcar retorno</button>
+      ${c.status !== 'fechado' ? `<button class="btn btn-sm btn-s" onclick="retFechou('${c.id}')">Fechou</button>` : ''}
+      ${!['perdido','adormecido','fechado'].includes(c.status) ? `<button class="btn btn-sm btn-d" onclick="retPerdeu('${c.id}')">Perdeu</button>` : ''}</div>` : ''}
+  </div>
+  <div class="card">
+    ${wa ? `<a href="${wa}" target="_blank" rel="noopener" style="display:flex;gap:8px;text-decoration:none;font-weight:600;margin-bottom:8px">${ic('phone')} ${esc(foneFmt(c.whatsapp))}</a>` : ''}
     ${end ? `<a href="${mapsLink(end)}" target="_blank" rel="noopener" style="display:flex;gap:8px;text-decoration:none;color:var(--text2)">${ic('pin')} ${esc(end)}</a>` : ''}
     ${c.documento ? `<div style="margin-top:8px;color:var(--text2)">CPF/CNPJ: ${esc(c.documento)}</div>` : ''}
     ${c.observacoes ? `<div style="margin-top:8px;color:var(--text2);white-space:pre-wrap">${esc(c.observacoes)}</div>` : ''}
@@ -1749,38 +1930,75 @@ function vCliente(r){
   </div>
   <div class="sec">Serviços</div><div class="list">${ss.length ? ss.map(rowServ).join('') : '<div class="empty">Nenhum serviço.</div>'}</div>
   <div class="sec">Orçamentos</div><div class="list">${os.length ? os.map(rowOrc).join('') : '<div class="empty">Nenhum orçamento.</div>'}</div>
-  <div class="btns" style="margin-top:14px"><button class="btn btn-p" onclick="novoOrcamentoPara('${c.id}')">${ic('plus')} Orçamento para ${esc(c.nome.split(' ')[0])}</button></div>`;
+  <div class="btns" style="margin-top:14px"><button class="btn btn-p" onclick="novoOrcamentoPara('${c.id}')">${ic('plus')} Orçamento${primeiro ? ' para ' + esc(primeiro) : ''}</button></div>`;
 }
 const novoOrcamentoPara = cid => novoOrcamento(cid);
-function modalCliente(cid, depois){
-  const c = cid ? cliente(cid) : null;
+// pre: valores iniciais de um contato novo (a tela Retornos já sugere
+// "conversando" e retorno em 2 dias). Sem pre, o banco usa "novo" e sem data,
+// que é o certo para quem é cadastrado no meio de um orçamento ou serviço.
+function modalCliente(cid, depois, pre){
+  const c = cid ? cliente(cid) : (pre || null);
   window._cliDepois = depois || null;
-  openModal(c ? 'Editar cliente' : 'Novo cliente', `
-    <div class="field"><label>Nome</label><input class="in" id="cl-nome" value="${esc(c?.nome || '')}"></div>
-    <div class="f2"><div class="field"><label>WhatsApp</label><input class="in" id="cl-wa" inputmode="tel" value="${esc(c?.whatsapp || '')}"></div>
-      <div class="field"><label>CPF/CNPJ</label><input class="in" id="cl-doc" value="${esc(c?.documento || '')}"><div class="hint">Só se for sair no orçamento.</div></div></div>
-    <div class="field"><label>Endereço</label><input class="in" id="cl-end" value="${esc(c?.endereco || '')}"></div>
+  window._cliOrig = cid ? { status:c.status, data:c.proximo_contato || '' } : null;
+  const rap = [['Hoje',0],['Amanhã',1],['+2',2],['+3',3],['+7',7],['+15',15],['+30',30]];
+  openModal(cid ? 'Editar cliente' : 'Novo contato', `
+    <div class="f2"><div class="field"><label>Nome</label><input class="in" id="cl-nome" value="${esc(c?.nome || '')}"></div>
+      <div class="field"><label>WhatsApp</label><input class="in" id="cl-wa" inputmode="tel" value="${esc(c?.whatsapp || '')}" oninput="cliDup('${cid || ''}')"></div></div>
+    <div id="cl-dup"></div>
+    <div class="hint" style="margin:-6px 0 10px">Basta o nome ou o WhatsApp. O resto é opcional.</div>
+    <div class="f2"><div class="field"><label>Status</label><select class="in" id="cl-st">${Object.entries(ST_CLI).map(([k,[t]]) =>
+        `<option value="${k}" ${k === (c?.status || 'novo') ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+      <div class="field"><label>De onde veio</label><select class="in" id="cl-ori"><option value=""></option>${uniq([...ORIGENS, c?.origem].filter(Boolean)).map(o =>
+        `<option ${o === c?.origem ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></div></div>
+    <div class="field"><label>Próximo contato</label><input class="in" type="date" id="cl-prox" value="${esc(c?.proximo_contato || '')}" onchange="cliRap()">
+      <div class="chips" id="cl-rap" style="margin-top:6px">${rap.map(([t,n]) => `<button type="button" class="chip" data-n="${n}" onclick="cliRap(${n})">${t}</button>`).join('')}
+        <button type="button" class="chip" data-n="" onclick="cliRap('')">Sem data</button></div></div>
     <div class="f2"><div class="field"><label>Bairro</label><input class="in" id="cl-bai" value="${esc(c?.bairro || '')}"></div>
       <div class="field"><label>Cidade</label><input class="in" id="cl-cid" value="${esc(c?.cidade || '')}" list="cidades-dl"></div></div>
     <datalist id="cidades-dl">${CIDADES.map(x => `<option value="${x}">`).join('')}</datalist>
-    <div class="field"><label>Observações</label><textarea class="in" id="cl-obs">${esc(c?.observacoes || '')}</textarea></div>
-    <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarCliente(${c ? `'${c.id}'` : 'null'})">Salvar</button>
-      ${c && !S.servicos.some(s => s.cliente_id === c.id) && !S.orcs.some(o => o.cliente_id === c.id) ? `<button class="btn btn-d" onclick="excluirCliente('${c.id}')">${ic('trash')}</button>` : ''}</div>`);
+    <div class="field"><label>Observações</label><textarea class="in" id="cl-obs" placeholder="O que a pessoa precisa, valor falado, melhor horário…">${esc(c?.observacoes || '')}</textarea></div>
+    <div class="f2"><div class="field"><label>Endereço</label><input class="in" id="cl-end" value="${esc(c?.endereco || '')}"></div>
+      <div class="field"><label>CPF/CNPJ</label><input class="in" id="cl-doc" value="${esc(c?.documento || '')}"><div class="hint">Só se for sair no orçamento.</div></div></div>
+    <label style="display:flex;gap:8px;align-items:center;margin:2px 0 14px;font-size:14px"><input type="checkbox" id="cl-nao" ${c?.nao_contatar ? 'checked' : ''}> Não quer mais contato</label>
+    <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarCliente(${cid ? `'${cid}'` : 'null'})">Salvar</button>
+      ${cid && !S.servicos.some(s => s.cliente_id === cid) && !S.orcs.some(o => o.cliente_id === cid) ? `<button class="btn btn-d" onclick="excluirCliente('${cid}')">${ic('trash')}</button>` : ''}</div>`);
+  cliRap(); cliDup(cid || '');
+}
+// Atalhos de data: marca o atalho que bate com a data escolhida.
+function cliRap(n){
+  if (n !== undefined) $('cl-prox').value = n === '' ? '' : addDias(hoje(), n);
+  const v = fv('cl-prox');
+  document.querySelectorAll('#cl-rap .chip').forEach(b => b.classList.toggle('on', b.dataset.n === '' ? !v : !!v && addDias(hoje(), +b.dataset.n) === v));
+}
+// Aviso de número repetido: o mesmo cliente volta pelo WhatsApp e
+// acabaria com dois cadastros, cada um com metade do histórico.
+function cliDup(cid){
+  const d = foneBase(fv('cl-wa'));
+  const o = d.length >= 10 && S.clientes.find(x => x.id !== cid && foneBase(x.whatsapp) === d);
+  $('cl-dup').innerHTML = o ? `<div class="warn">${ic('alert')}<span>Esse número já está cadastrado: <a href="#/cliente/${o.id}" style="color:inherit;font-weight:700">${esc(nomeC(o))}</a></span></div>` : '';
 }
 async function salvarCliente(cid){
-  const nome = fv('cl-nome').trim(); if (!nome) return toast('Coloque o nome.', true);
-  const row = { nome, whatsapp:fv('cl-wa').trim() || null, documento:fv('cl-doc').trim() || null, endereco:fv('cl-end').trim() || null,
-    bairro:fv('cl-bai').trim() || null, cidade:fv('cl-cid').trim() || null, observacoes:fv('cl-obs').trim() || null };
+  const nome = fv('cl-nome').trim(), wa = fv('cl-wa').trim();
+  if (!nome && !wa) return toast('Coloque o nome ou o WhatsApp.', true);
+  if (wa && foneBase(wa).length < 10) return toast('WhatsApp incompleto: coloque o DDD.', true);
+  const row = { nome:nome || null, whatsapp:wa || null, documento:fv('cl-doc').trim() || null, endereco:fv('cl-end').trim() || null,
+    bairro:fv('cl-bai').trim() || null, cidade:fv('cl-cid').trim() || null, observacoes:fv('cl-obs').trim() || null,
+    origem:fv('cl-ori') || null, status:fv('cl-st'), nao_contatar:$('cl-nao').checked };
+  // Data só vai junto se foi mexida (ou é cadastro novo). Se ela for
+  // reenviada igual, o banco entende como "você escolheu manter esta data"
+  // e não aplica o prazo automático de quem acabou de virar perdido.
+  const orig = window._cliOrig, prox = fv('cl-prox') || null;
+  if (!orig || (prox || '') !== orig.data) row.proximo_contato = prox;
   const depois = window._cliDepois;
   const id2 = await act(async () => {
     if (cid) { const [n] = await db.upd('tdh_clientes', eqId(cid), row); Object.assign(cliente(cid), n); return cid; }
-    const [n] = await db.ins('tdh_clientes', row); S.clientes.push(n); S.clientes.sort((a,b) => a.nome.localeCompare(b.nome)); return n.id;
+    const [n] = await db.ins('tdh_clientes', row); S.clientes.push(n); return n.id;
   }, 'Salvo.');
   if (!id2) return;
   closeModal(); if (depois) depois(id2); else rerender();
 }
 function excluirCliente(cid){ closeModal();
-  confirmar('Excluir cliente', 'Apagar este cadastro?', 'Excluir', async () => {
+  confirmar('Excluir cliente', 'Apagar este cadastro? Se a pessoa só não quer mais ser chamada, prefira marcar "Não quer mais contato".', 'Excluir', async () => {
     const ok = await act(async () => { await db.del('tdh_clientes', eqId(cid)); S.clientes = S.clientes.filter(c => c.id !== cid); return true; });
     if (ok) go('#/clientes'); }, true); }
 
@@ -1829,13 +2047,23 @@ function vConfig(){
     <div class="field"><label>Texto padrão — Execução</label><textarea class="in" id="cf-exe">${esc(c.texto_execucao || '')}</textarea></div>
     <div class="field"><label>Texto padrão — Garantia</label><textarea class="in" id="cf-gtx">${esc(c.texto_garantia || '')}</textarea><div class="hint">{garantia} vira o número de dias.</div></div>
     <div class="field"><label>Texto padrão — Imprevistos</label><textarea class="in" id="cf-imp">${esc(c.texto_imprevistos || '')}</textarea></div>
+    <div class="sec" style="margin-top:6px">Retornos automáticos (dias)</div>
+    <div class="f3"><div class="field"><label>Após orçamento</label><input class="in num" id="cf-fo" inputmode="numeric" value="${esc(c.followup_orcamento_dias ?? 2)}"></div>
+      <div class="field"><label>Pós-venda</label><input class="in num" id="cf-fp" inputmode="numeric" value="${esc(c.followup_posvenda_dias ?? 75)}"></div>
+      <div class="field"><label>Reciclar perdido</label><input class="in num" id="cf-fr" inputmode="numeric" value="${esc(c.followup_reciclar_dias ?? 150)}"></div></div>
+    <div class="hint" style="margin:-4px 0 12px">Valem para as próximas mudanças. Retornos já marcados não mudam.</div>
+    <div class="field"><label>Resumo diário por e-mail (07:30) para</label><input class="in" id="cf-mail" type="email" value="${esc(c.resumo_email || '')}"></div>
     <button class="btn btn-p btn-w" onclick="salvarConfig()">Salvar padrões</button>
   </div>`;
 }
 async function salvarConfig(){
   const row = { margem_material_pct:parseMoney(fv('cf-marg')), validade_dias:parseInt(onlyDigits(fv('cf-val')) || '15', 10), garantia_dias:parseInt(onlyDigits(fv('cf-gar')) || '90', 10),
     cnpj:fv('cf-cnpj').trim(), pix_tipo:fv('cf-pixt').trim(), pix_chave:fv('cf-pix').trim(),
-    texto_execucao:fv('cf-exe').trim() || null, texto_garantia:fv('cf-gtx').trim() || null, texto_imprevistos:fv('cf-imp').trim() || null };
+    texto_execucao:fv('cf-exe').trim() || null, texto_garantia:fv('cf-gtx').trim() || null, texto_imprevistos:fv('cf-imp').trim() || null,
+    // Prazo vazio ou zero não pode entrar: retorno "em 0 dias" deixaria o
+    // contato eternamente "para hoje".
+    followup_orcamento_dias:parseInt(onlyDigits(fv('cf-fo')), 10) || 2, followup_posvenda_dias:parseInt(onlyDigits(fv('cf-fp')), 10) || 75,
+    followup_reciclar_dias:parseInt(onlyDigits(fv('cf-fr')), 10) || 150, resumo_email:fv('cf-mail').trim() || 'esdraspresidente@gmail.com' };
   await act(async () => { const [n] = await db.upd('tdh_config', 'id=eq.1', row); S.cfg = n; }, 'Padrões salvos.');
 }
 

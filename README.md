@@ -37,6 +37,25 @@ O contato acontece só em dois pontos:
   bloqueios, para avisar de conflito. Ela só lê, e pega apenas data, hora,
   descrição e local.
 
+## Retornos (acompanhamento de contatos)
+
+Todo cliente é também um contato que pode ser chamado de volta: status
+(novo, conversando, orçamento enviado, fechado, perdido, adormecido),
+origem, próximo contato e "não quer mais contato". Nome deixou de ser
+obrigatório: basta nome **ou** WhatsApp.
+
+As regras automáticas ficam no banco (`previmater-ops/_sql/tdh_02_followup.sql`),
+não no app, para valerem igual de qualquer tela:
+
+- orçamento enviado → retorno em 2 dias; aprovado → limpa o retorno;
+- recusado, perdido ou adormecido → volta para a fila em 150 dias;
+- serviço executado → pós-venda em 75 dias;
+- data escolhida à mão ganha da automática.
+
+Os prazos se mudam em Configurações. Todo dia às 07:30 a function
+`tdh-followup` manda por e-mail os atrasados e os de hoje (sem ninguém,
+não manda).
+
 ## Regras de dinheiro
 
 - **Preço sugerido de cada item:** material × (1 + margem) + mão de obra,
