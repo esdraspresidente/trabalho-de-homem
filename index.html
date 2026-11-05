@@ -381,7 +381,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.1.1';
+const APP_VER = '1.2.0';
 
 /* ═══ Cliente Supabase ═══════════════════════════════════════════════
    Escrito à parte, e não copiado do Diligências, porque o de lá aceita
@@ -879,6 +879,7 @@ function vOrcamentos(){
   <div class="seg" style="margin-bottom:12px">${[['abertos','Em aberto'],['aprovados','Aprovados'],['outros','Recusados'],['todos','Todos']]
     .map(([k,t]) => `<button class="${orcFiltro === k ? 'on' : ''}" onclick="orcFiltro='${k}';rerender()">${t}</button>`).join('')}</div>
   <div class="list">${lista.length ? lista.map(rowOrc).join('') : '<div class="empty">Nenhum orçamento aqui.</div>'}</div>
+  <div class="btns" style="margin-top:12px"><button class="btn btn-s" style="flex:1" onclick="modalImportar()">${ic('copy')} Importar orçamento (colar do Claude)</button></div>
   <div style="height:64px"></div><button class="btn btn-p fab" onclick="novoOrcamento()">${ic('plus')} Novo orçamento</button>`;
 }
 // Só informativo: o número real sai da sequence do banco na emissão.
@@ -1194,6 +1195,185 @@ function excluirOrc(oid){
     const ok = await act(async () => { await db.del('tdh_orcamentos', eqId(oid)); S.orcs = S.orcs.filter(o => o.id !== oid); S.itens = S.itens.filter(i => i.orcamento_id !== oid); return true; });
     if (ok) go('#/orcamentos');
   }, true);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   IMPORTAR ORÇAMENTO (JSON montado no Claude)
+   O orçamento é montado na conversa com o Claude, que entrega um JSON no
+   formato "tdh-orcamento-v1". Aqui você cola, confere e importa.
+
+   Regras e o porquê de cada uma:
+   - Entra SEMPRE como rascunho. O Claude pode errar valor ou item; o
+     número só sai quando você emitir, depois de conferir no app.
+   - Cliente é achado pelo WhatsApp (só dígitos, sem o 55). É o único dado
+     que não se repete entre duas pessoas; nome se repete e é digitado de
+     jeitos diferentes. Sem WhatsApp, usa o nome só se houver exatamente
+     um cliente com ele; senão cadastra novo (melhor um duplicado visível
+     do que juntar o orçamento na pessoa errada).
+   - Cliente que já existe NÃO é sobrescrito: só campos vazios dele são
+     preenchidos. O cadastro do app vale mais que o texto da conversa.
+   - Preço: se o JSON trouxer preco_cliente, ele vale (é o preço que você
+     combinou na conversa). Sem ele, usa a mesma regra do app (sugerido).
+   - Se os itens falharem, o orçamento e o cliente recém-criados são
+     apagados: não fica rascunho pela metade.
+   ═══════════════════════════════════════════════════════════════════ */
+let _imp = null; // resultado da conferência, usado pelo botão Importar
+
+// Aceita o JSON puro ou dentro de um bloco ```json``` copiado da conversa.
+function impParse(txt){
+  let s = String(txt || '').trim();
+  const bloco = s.match(/```(?:json)?\s*([\s\S]*?)```/i); if (bloco) s = bloco[1].trim();
+  const a = s.indexOf('{'), b = s.lastIndexOf('}');
+  if (a < 0 || b < a) throw new Error('Não achei o JSON no texto colado.');
+  let d; try { d = JSON.parse(s.slice(a, b + 1)); } catch(e) { throw new Error('O JSON está quebrado: ' + e.message); }
+  if (d.formato && d.formato !== 'tdh-orcamento-v1') throw new Error('Formato desconhecido: ' + d.formato);
+  return d;
+}
+// Valor pode vir como número (250) ou texto ("250,00", "R$ 1.200,50").
+const impNum = v => typeof v === 'number' ? (isFinite(v) ? Math.round(v*100)/100 : 0) : parseMoney(v);
+const impTxt = v => { const s = String(v ?? '').trim(); return s || null; };
+// Tempo pode vir em minutos (90) ou texto ("1h30").
+const impTempo = v => typeof v === 'number' ? Math.round(v) : parseTempo(v);
+
+function impMontar(d){
+  const cfg = S.cfg || {}, cl = d.cliente || {}, o = d.orcamento || {};
+  const erros = [];
+  const its = (Array.isArray(d.itens) ? d.itens : []).map((x, k) => {
+    const tipo = x.tipo === 'custo_interno' ? 'custo_interno' : 'servico';
+    const titulo = impTxt(x.titulo);
+    if (!titulo) erros.push(`Item ${k + 1} sem título.`);
+    const row = { tipo, titulo, ordem:k + 1, material_custo:impNum(x.material_custo), mao_obra:impNum(x.mao_obra) };
+    if (row.material_custo < 0 || row.mao_obra < 0) erros.push(`Item ${k + 1} com valor negativo.`);
+    if (tipo === 'servico') {
+      row.descricao_cliente = impTxt(x.descricao_cliente);
+      row.tempo_estimado_min = impTempo(x.tempo_estimado_min ?? x.tempo);
+      row.margem_material_pct = x.margem_material_pct != null ? impNum(x.margem_material_pct) : num(cfg.margem_material_pct ?? 15);
+      row.preco_cliente = x.preco_cliente != null && x.preco_cliente !== '' ? impNum(x.preco_cliente) : sugerido(row);
+    } else { row.margem_material_pct = 0; row.preco_cliente = 0; }
+    return row;
+  });
+  if (!its.some(i => i.tipo === 'servico')) erros.push('Precisa de pelo menos um item de serviço.');
+
+  const nome = impTxt(cl.nome), wa = onlyDigits(cl.whatsapp), base = foneBase(wa);
+  if (!nome && !wa) erros.push('O cliente precisa de nome ou WhatsApp.');
+  if (wa && base.length < 10) erros.push('WhatsApp do cliente sem DDD.');
+
+  // Procura o cliente: WhatsApp primeiro; nome só se for único.
+  let existe = null, como = '';
+  if (base.length >= 10) { existe = S.clientes.find(c => foneBase(c.whatsapp) === base); como = 'pelo WhatsApp'; }
+  if (!existe && !wa && nome) {
+    const mesmos = S.clientes.filter(c => (c.nome || '').trim().toLowerCase() === nome.toLowerCase());
+    if (mesmos.length === 1) { existe = mesmos[0]; como = 'pelo nome'; }
+  }
+  const dadosCli = { nome, whatsapp:wa || null, documento:impTxt(cl.documento), endereco:impTxt(cl.endereco),
+    bairro:impTxt(cl.bairro), cidade:impTxt(cl.cidade), origem:impTxt(cl.origem), observacoes:impTxt(cl.observacoes) };
+  // Só o que está vazio no cadastro e veio preenchido no JSON.
+  const completar = {};
+  if (existe) for (const k of ['nome','documento','endereco','bairro','cidade','origem'])
+    if (!impTxt(existe[k]) && dadosCli[k]) completar[k] = dadosCli[k];
+
+  const ref = existe ? { ...existe, ...completar } : dadosCli;
+  const enderecoCli = [ref.endereco, ref.bairro, ref.cidade].filter(Boolean).join(', ') || null;
+  const orcRow = {
+    status:'rascunho',
+    local_servico: impTxt(o.local_servico) || enderecoCli,
+    subtitulo: impTxt(o.subtitulo) || 'Serviços de manutenção com fornecimento de material',
+    validade_dias: o.validade_dias != null ? Math.round(impNum(o.validade_dias)) : (cfg.validade_dias ?? 15),
+    garantia_dias: o.garantia_dias != null ? Math.round(impNum(o.garantia_dias)) : (cfg.garantia_dias ?? 90),
+    entrada_valor: impNum(o.entrada_valor),
+    // Textos padrão vêm da Configuração, como no "Novo orçamento". Só troca
+    // se a conversa definiu um texto específico para este cliente.
+    texto_execucao: impTxt(o.texto_execucao) || cfg.texto_execucao || null,
+    texto_garantia: impTxt(o.texto_garantia) || cfg.texto_garantia || null,
+    texto_imprevistos: impTxt(o.texto_imprevistos) || cfg.texto_imprevistos || null,
+    observacoes_internas: [impTxt(o.observacoes_internas), 'Importado do Claude em ' + fmtData(hoje()) + '.'].filter(Boolean).join('\n'),
+  };
+
+  const total = its.filter(i => i.tipo === 'servico').reduce((s,i) => s + num(i.preco_cliente), 0);
+  // Aviso de colagem repetida: mesmo cliente, mesmos títulos e mesmo total.
+  let repetido = null;
+  if (existe) {
+    const chave = its.map(i => i.titulo).join('|');
+    repetido = S.orcs.find(x => x.cliente_id === existe.id && itensDe(x.id).map(i => i.titulo).join('|') === chave
+      && Math.abs(totaisOrc(x.id).total - total) < 0.01);
+  }
+  return { erros, its, existe, como, dadosCli, completar, orcRow, total, repetido };
+}
+
+function modalImportar(){
+  _imp = null;
+  openModal('Importar orçamento', `
+    <p style="color:var(--text3);font-size:13px;margin:-6px 0 12px">Cole o JSON que o Claude gerou. Entra como <b>rascunho</b>: você confere e emite aqui.</p>
+    <div class="field"><textarea class="in" id="imp-txt" style="min-height:180px;font-family:monospace;font-size:12.5px" placeholder='{"formato":"tdh-orcamento-v1", ...}'></textarea></div>
+    <div class="btns" style="margin-bottom:12px">
+      <button class="btn btn-s" onclick="impColar()">${ic('copy')} Colar</button>
+      <button class="btn btn-n" style="flex:1" onclick="impConferir()">${ic('search')} Conferir</button></div>
+    <div id="imp-prev"></div>`);
+}
+// Botão "Colar": no celular é mais fácil que segurar o dedo na caixa.
+// Alguns navegadores bloqueiam; aí é colar na mão.
+async function impColar(){
+  try { $('imp-txt').value = await navigator.clipboard.readText(); impConferir(); }
+  catch(e) { toast('O navegador não deixou colar. Segure o dedo na caixa e cole.', true); }
+}
+function impConferir(){
+  const box = $('imp-prev'); _imp = null;
+  let r;
+  try { r = impMontar(impParse(fv('imp-txt'))); }
+  catch(e) { box.innerHTML = `<div class="warn">${ic('alert')}<span>${esc(e.message)}</span></div>`; return; }
+  if (r.erros.length) { box.innerHTML = `<div class="warn">${ic('alert')}<span>${r.erros.map(esc).join('<br>')}</span></div>`; return; }
+  _imp = r;
+  const c = r.existe, comp = Object.keys(r.completar);
+  const cliHtml = c
+    ? `Cliente já cadastrado (achado ${r.como}): <b>${esc(nomeC(c))}</b>${comp.length ? `<br><span style="font-size:12.5px">Vai completar: ${comp.map(k => ({ documento:'CPF/CNPJ', endereco:'endereço' })[k] || k).join(', ')}</span>` : ''}`
+    : `Cliente novo: <b>${esc(r.dadosCli.nome || foneFmt(r.dadosCli.whatsapp))}</b>${r.dadosCli.whatsapp ? ' · ' + esc(foneFmt(r.dadosCli.whatsapp)) : ' · <b>sem WhatsApp</b>'}`;
+  let n = 0;
+  box.innerHTML = `
+    ${r.repetido ? `<div class="warn">${ic('alert')}<span>Parece já importado: ${esc(numOrc(r.repetido))} tem o mesmo cliente, itens e total. <a href="#/orc/${r.repetido.id}" style="color:inherit;font-weight:700">Abrir</a></span></div>` : ''}
+    <div class="card" style="margin-bottom:12px;font-size:14px;line-height:1.5">
+      <div style="margin-bottom:8px">${cliHtml}</div>
+      ${r.orcRow.local_servico ? `<div style="color:var(--text3);font-size:13px;margin-bottom:8px">Local: ${esc(r.orcRow.local_servico)}</div>` : ''}
+      ${r.its.map(i => i.tipo === 'servico'
+        ? `<div style="display:flex;gap:8px;padding:4px 0;border-top:1px solid var(--line)"><span style="flex:1">${++n}. ${esc(i.titulo)}${i.tempo_estimado_min ? ` <span style="color:var(--text3)">· ${fmtTempo(i.tempo_estimado_min)}</span>` : ''}</span>${m$(i.preco_cliente)}</div>`
+        : `<div style="display:flex;gap:8px;padding:4px 0;border-top:1px solid var(--line);color:var(--text3)"><span style="flex:1">${ic('lock')} ${esc(i.titulo)} (interno)</span>${m$(i.material_custo + i.mao_obra)}</div>`).join('')}
+      <div style="display:flex;padding-top:8px;border-top:1px solid var(--line);font-weight:700"><span style="flex:1">Total ao cliente</span>${m$(r.total)}</div>
+      ${num(r.orcRow.entrada_valor) ? `<div style="color:var(--text3);font-size:13px">Entrada: ${money(r.orcRow.entrada_valor)}</div>` : ''}
+    </div>
+    <button class="btn btn-p btn-w" onclick="impGravar()">${ic('check')} Importar como rascunho</button>`;
+}
+
+async function impGravar(){
+  const r = _imp; if (!r) return;
+  _imp = null; // evita gravar duas vezes com toque duplo
+  let cliCriado = null, orcCriado = null;
+  const oid = await act(async () => {
+    try {
+      let cid;
+      if (r.existe) {
+        cid = r.existe.id;
+        if (Object.keys(r.completar).length) {
+          const [n] = await db.upd('tdh_clientes', eqId(cid), r.completar); Object.assign(cliente(cid), n);
+        }
+      } else {
+        const row = { ...r.dadosCli, status:'conversando' };
+        const [n] = await db.ins('tdh_clientes', row); cliCriado = n; cid = n.id;
+      }
+      const cl = cliente(cid) || cliCriado;
+      const [o] = await db.ins('tdh_orcamentos', { ...r.orcRow, cliente_id:cid, cliente_nome:cl?.nome || null });
+      orcCriado = o;
+      const its = await db.ins('tdh_orcamento_itens', r.its.map(i => ({ ...i, orcamento_id:o.id })));
+      if (cliCriado) S.clientes.push(cliCriado);
+      S.orcs.unshift(o); S.itens.push(...its);
+      return o.id;
+    } catch(e) {
+      // Desfaz o que foi criado nesta importação (não mexe em cliente antigo).
+      if (orcCriado) await db.del('tdh_orcamentos', eqId(orcCriado.id)).catch(() => {});
+      if (cliCriado) await db.del('tdh_clientes', eqId(cliCriado.id)).catch(() => {});
+      throw e;
+    }
+  }, 'Orçamento importado como rascunho.');
+  // Falhou: libera o botão para tentar de novo sem colar outra vez.
+  if (oid) { closeModal(); go('#/orc/' + oid); } else _imp = r;
 }
 
 /* ═══════════════════════════════════════════════════════════════════

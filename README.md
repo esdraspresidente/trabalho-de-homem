@@ -66,6 +66,39 @@ não manda).
 - **Numeração dos orçamentos:** sequência no banco, a partir do 654. O
   rascunho não consome número; o número sai na emissão e nunca se repete.
 
+## Importar orçamento (montado no Claude)
+
+Em Orçamentos → "Importar orçamento", você cola o JSON que o Claude gera na
+conversa, confere a prévia e importa. Sempre entra como **rascunho**: o
+número só sai quando você emitir, depois de conferir.
+
+Cliente é achado pelo WhatsApp (só dígitos, com DDD). Se não existir, é
+cadastrado. Cliente existente não é sobrescrito: só os campos vazios dele
+são completados. Se algo falhar no meio, nada fica gravado pela metade.
+
+Formato (`tdh-orcamento-v1`). Só `itens[].titulo` e nome **ou** WhatsApp do
+cliente são obrigatórios; o resto cai no padrão das Configurações.
+
+```json
+{
+  "formato": "tdh-orcamento-v1",
+  "cliente": { "nome": "", "whatsapp": "41999999999", "documento": "",
+               "endereco": "", "bairro": "", "cidade": "", "origem": "" },
+  "orcamento": { "local_servico": "", "subtitulo": "", "validade_dias": 15,
+                 "garantia_dias": 90, "entrada_valor": 0,
+                 "observacoes_internas": "" },
+  "itens": [
+    { "tipo": "servico", "titulo": "", "descricao_cliente": "",
+      "tempo_estimado_min": 90, "material_custo": 0, "mao_obra": 0,
+      "margem_material_pct": 15, "preco_cliente": 0 },
+    { "tipo": "custo_interno", "titulo": "Ajudante", "mao_obra": 150 }
+  ]
+}
+```
+
+`preco_cliente` vazio = preço sugerido pela regra do app. Preenchido = vale
+o valor combinado na conversa.
+
 ## Arquivos
 
 | Arquivo | O que é |
