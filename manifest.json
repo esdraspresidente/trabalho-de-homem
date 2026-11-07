@@ -29,5 +29,20 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Lançar por voz",
+      "short_name": "Lançar por voz",
+      "description": "Abre o Trabalho de Homem já gravando um comando",
+      "url": "./?voz=1",
+      "icons": [
+        {
+          "src": "icon-voz-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
   ]
 }

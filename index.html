@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0F2238">
 <title>Trabalho de Homem</title>
-<link rel="manifest" href="manifest.json?v=3">
+<link rel="manifest" href="manifest.json?v=4">
 <!-- iOS ignora parte do manifest: sem estas linhas o "Adicionar à Tela de
      Início" abre como aba do Safari, com barra, e não como app. -->
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -396,7 +396,7 @@ table.pdf-t .ds{color:#5A6169;font-size:12px;margin-top:2px;line-height:1.4}
   <div id="voz-overlay" role="dialog" aria-label="Gravando comando de voz">
     <div id="voz-tempo">0:00</div>
     <div id="voz-dica">Fale e toque no botão para enviar<br><small style="font-weight:500;opacity:.8">gasto · orçamento aprovado · recebi · paguei · marcar dia · novo contato</small></div>
-    <button id="voz-parar" onclick="vozParar(false)" aria-label="Parar e enviar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg></button>
+    <button id="voz-parar" onclick="vozBotaoGrande()" aria-label="Parar e enviar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg></button>
     <button id="voz-cancelar" onclick="vozParar(true)">Cancelar</button>
   </div>
 </div>
@@ -423,7 +423,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.7.1';
+const APP_VER = '1.7.2';
 
 /* ═══ Cliente Supabase ═══════════════════════════════════════════════
    Escrito à parte, e não copiado do Diligências, porque o de lá aceita
@@ -731,6 +731,9 @@ async function start(){
     $('login').classList.add('hidden'); $('app').classList.remove('hidden');
     buildNav();
     if (!location.hash || location.hash === '#') location.replace('#/painel'); else render();
+    // Atalho "Lançar por voz": só depois da carga, senão a resposta da
+    // voz chegaria sem as obras e clientes para abrir a tela certa.
+    setTimeout(vozAtalho, 0);
   } catch(e) {
     console.error(e);
     if (!sess) onSignedOut(); else toast(e.message || 'Falha ao carregar.', true);
@@ -2086,12 +2089,49 @@ const VOZ_URL = SB_URL + '/functions/v1/tdh-voz';
 const VOZ_MAX_SEG = 45;
 const _voz = { rec:null, stream:null, partes:[], timer:null, t0:0, cancelado:false, ocupado:false };
 
-async function vozToggle(){
+const VOZ_ICONE_ENVIAR = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>';
+const VOZ_ICONE_MIC = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
+
+// O botão grande faz duas coisas: grava (quando a tela está "pronta",
+// esperando um toque) ou envia (quando já está gravando).
+function vozBotaoGrande(){
+  if (_voz.rec && _voz.rec.state === 'recording') vozParar(false); else vozToggle();
+}
+// Tela de gravação aberta, mas ainda sem gravar. Usada pelo atalho quando o
+// navegador não libera o microfone sem um toque na tela: aí o toque é no
+// próprio botão grande.
+function vozMostrarPronto(){
+  $('voz-overlay').classList.add('aberto');
+  $('voz-tempo').textContent = '';
+  $('voz-dica').firstChild.textContent = 'Toque no botão e fale';
+  const b = $('voz-parar'); b.innerHTML = VOZ_ICONE_MIC; b.setAttribute('aria-label', 'Começar a gravar');
+}
+// ATALHO (manifest.json → shortcuts, url ?voz=1). Segurar o ícone do app
+// mostra "Lançar por voz"; arrastado para a tela inicial vira ícone próprio.
+async function vozAtalho(){
+  const q = new URLSearchParams(location.search);
+  if (q.get('voz') !== '1') return;
+  // Tira o ?voz=1 da barra: senão recarregar a página começaria a gravar
+  // de novo sem a pessoa pedir.
+  q.delete('voz');
+  history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash);
+  vozMostrarPronto();
+  await vozToggle(true);
+}
+
+async function vozToggle(automatico){
   if (_voz.ocupado) return;
   if (_voz.rec && _voz.rec.state === 'recording') { vozParar(false); return; }
-  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') return toast('Este aparelho não permite gravar áudio aqui.', true);
+  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+    $('voz-overlay').classList.remove('aberto'); return toast('Este aparelho não permite gravar áudio aqui.', true); }
   try { _voz.stream = await navigator.mediaDevices.getUserMedia({ audio:true }); }
-  catch(e) { return toast('Libere o microfone para o app nas configurações do navegador.', true); }
+  catch(e) {
+    // Vindo do atalho, a falha costuma ser só "precisa de um toque": a
+    // tela fica no modo pronto esperando o toque no botão grande.
+    if (automatico === true) return;
+    $('voz-overlay').classList.remove('aberto');
+    return toast('Libere o microfone para o app nas configurações do navegador.', true);
+  }
   // iPhone grava em mp4; Android/desktop em webm. A function aceita os dois.
   const tipos = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg;codecs=opus'];
   const mime = tipos.find(t => { try { return MediaRecorder.isTypeSupported(t); } catch(e) { return false; } }) || '';
@@ -2102,6 +2142,8 @@ async function vozToggle(){
   _voz.rec.onstop = () => { vozSoltarMic(); if (!_voz.cancelado) vozEnviar(); };
   _voz.rec.start();
   $('voz-overlay').classList.add('aberto');
+  const bG = $('voz-parar'); bG.innerHTML = VOZ_ICONE_ENVIAR; bG.setAttribute('aria-label', 'Parar e enviar');
+  $('voz-dica').firstChild.textContent = 'Fale e toque no botão para enviar';
   const tick = () => {
     const seg = Math.floor((Date.now() - _voz.t0) / 1000);
     $('voz-tempo').textContent = Math.floor(seg/60) + ':' + String(seg % 60).padStart(2, '0');
