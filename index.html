@@ -395,7 +395,7 @@ table.pdf-t .ds{color:#5A6169;font-size:12px;margin-top:2px;line-height:1.4}
   <button id="fab-voz" onclick="vozToggle()" aria-label="Lançar por voz"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
   <div id="voz-overlay" role="dialog" aria-label="Gravando comando de voz">
     <div id="voz-tempo">0:00</div>
-    <div id="voz-dica">Fale e toque no botão para enviar<br><small style="font-weight:500;opacity:.8">gasto · orçamento aprovado · recebi · paguei prestador</small></div>
+    <div id="voz-dica">Fale e toque no botão para enviar<br><small style="font-weight:500;opacity:.8">gasto · orçamento aprovado · recebi · paguei · marcar dia · novo contato</small></div>
     <button id="voz-parar" onclick="vozParar(false)" aria-label="Parar e enviar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg></button>
     <button id="voz-cancelar" onclick="vozParar(true)">Cancelar</button>
   </div>
@@ -423,7 +423,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.6.0';
+const APP_VER = '1.7.0';
 
 /* ═══ Cliente Supabase ═══════════════════════════════════════════════
    Escrito à parte, e não copiado do Diligências, porque o de lá aceita
@@ -1780,18 +1780,23 @@ function excluirServ(sid){
 }
 
 // Dias
-function modalAgenda(sid, aid){
-  const a = aid ? S.agendas.find(x => x.id === aid) : null;
-  openModal(a ? 'Editar dia' : 'Marcar dia', `
-    <div class="field"><label>Data</label><input class="in" type="date" id="ag-data" value="${a ? a.data : ''}"></div>
-    <div class="f2"><div class="field"><label>Início</label><input class="in" type="time" id="ag-ini" value="${a ? hhmm(a.horario_inicio) : ''}"></div>
-      <div class="field"><label>Fim</label><input class="in" type="time" id="ag-fim" value="${a ? hhmm(a.horario_fim) : ''}"></div></div>
+// pre: comando de voz (data e horas faladas). Mostra a obra no topo,
+// porque pela voz a tela abre fora da página do serviço. O aviso de
+// conflito com o Diligências roda igual, já com a data falada.
+function modalAgenda(sid, aid, pre){
+  const a = aid ? S.agendas.find(x => x.id === aid) : null, pc = pre?.campos || {}, sv = pre ? serv(sid) : null;
+  openModal(a ? 'Editar dia' : 'Marcar dia', `${pre ? vozBanner(pre) : ''}
+    ${sv ? `<p style="margin:-4px 0 12px"><b>${esc(sv.descricao)}</b>${cliente(sv.cliente_id) ? ' · ' + esc(nomeC(cliente(sv.cliente_id))) : ''}</p>` : ''}
+    <div class="field"><label>Data</label><input class="in" type="date" id="ag-data" value="${a ? a.data : (pc.data || '')}"></div>
+    <div class="f2"><div class="field"><label>Início</label><input class="in" type="time" id="ag-ini" value="${a ? hhmm(a.horario_inicio) : (pc.hora_inicio || '')}"></div>
+      <div class="field"><label>Fim</label><input class="in" type="time" id="ag-fim" value="${a ? hhmm(a.horario_fim) : (pc.hora_fim || '')}"></div></div>
     <p style="font-size:12.5px;color:var(--text3);margin:-4px 0 12px">Sem horário, o dia inteiro fica bloqueado no Diligências. Com horário, bloqueia 1h antes e 1h depois.</p>
     <div id="ag-warn"></div>
     <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarAgenda('${sid}', ${a ? `'${a.id}'` : 'null'})">Salvar</button>
       ${a ? `<button class="btn btn-d" onclick="excluirAgenda('${a.id}')">${ic('trash')}</button>` : ''}</div>`);
   const chk = () => { $('ag-warn').innerHTML = fv('ag-data') ? warnHtml(conflitos(fv('ag-data'), fv('ag-ini'), fv('ag-fim'), aid)) : ''; };
   ['ag-data','ag-ini','ag-fim'].forEach(i => $(i).addEventListener('change', chk)); chk();
+  if (pre) vozMarcarVazios(['ag-data']);
 }
 async function salvarAgenda(sid, aid){
   const data = fv('ag-data'), ini = fv('ag-ini') || null, fim = fv('ag-fim') || null;
@@ -2136,14 +2141,22 @@ async function vozEnviar(){
 async function vozAplicar(j){
   const c = j.campos || {};
   if (j.acao === 'novo_gasto') return modalGasto({ voz:j });
+  // Contato novo: mesmos padrões do botão "Novo contato" dos Retornos
+  // (conversando, retorno em 2 dias), a não ser que a data tenha sido dita.
+  // O aviso de número repetido da tela roda igual.
+  if (j.acao === 'novo_contato') return modalCliente(null, null, { status:'conversando', nome:c.nome, whatsapp:c.whatsapp,
+    observacoes:c.observacoes, bairro:c.bairro, cidade:c.cidade, origem:c.origem,
+    proximo_contato:c.proximo_contato || addDias(hoje(), 2), _voz:j });
   const precisa = { orcamento_aprovado:['orcs', () => orc(c.orcamento_id)],
     recebimento:['receb', () => c.receb_id ? S.receb.find(r => r.id === c.receb_id) : serv(c.servico_id)],
-    repasse_pago:['vinc', () => S.vinc.find(v => v.id === c.repasse_id)] }[j.acao];
+    repasse_pago:['vinc', () => S.vinc.find(v => v.id === c.repasse_id)],
+    marcar_dia:['servicos', () => serv(c.servico_id)] }[j.acao];
   if (!precisa) return vozNaoEntendi(j.transcricao, j.duvidas);
   if (!precisa[1]()) { await act(() => load('orcs', 'servicos', 'receb', 'vinc')); }
   if (!precisa[1]()) return vozNaoEntendi(j.transcricao, ['Achei, mas o app ainda não tem esse item. Puxe a tela para atualizar e fale de novo.']);
   if (j.acao === 'orcamento_aprovado') return aprovarOrc(c.orcamento_id, j);
   if (j.acao === 'repasse_pago') return pagarRepasse(c.repasse_id, j);
+  if (j.acao === 'marcar_dia') return modalAgenda(c.servico_id, null, j);
   // Recebimento: valor igual ao previsto (ou não dito) → "Recebi" daquele
   // lançamento. Valor diferente → edita o lançamento com o valor falado.
   // Sem lançamento previsto → recebimento novo na obra.
@@ -2176,7 +2189,7 @@ function vozNaoEntendi(transcricao, duvidas){
   openModal('Não entendi o comando', `
     ${transcricao ? `<div style="font-size:14px;margin-bottom:10px"><b>Você disse:</b> “${esc(transcricao)}”</div>` : ''}
     ${d ? `<ul style="margin:0 0 12px 18px;padding:0;font-size:13px;color:var(--text2)">${d}</ul>` : ''}
-    <div class="hint" style="font-size:13px;color:var(--text3);margin-bottom:14px">Exemplos: “gastei 89,50 no Balaroti na obra da Setup” · “a Setup aprovou o orçamento” · “recebi 300 da Setup no pix” · “paguei o João da obra da Setup” · “custo fixo, 60 reais de anúncio no Instagram”.</div>
+    <div class="hint" style="font-size:13px;color:var(--text3);margin-bottom:14px">Exemplos: “gastei 89,50 no Balaroti na obra da Setup” · “a Setup aprovou o orçamento” · “recebi 300 da Setup no pix” · “paguei o João da obra da Setup” · “marca a Setup terça às 9” · “anota um contato, Carlos, 41 99876 5432, quer prateleira” · “custo fixo, 60 reais de anúncio no Instagram”.</div>
     <div class="btns"><button class="btn btn-s" style="flex:1" onclick="closeModal();setTimeout(vozToggle,250)">Falar de novo</button>
       <button class="btn btn-p" style="flex:1" onclick="closeModal();modalGasto({})">Lançar à mão</button></div>`);
 }
@@ -2728,7 +2741,8 @@ function modalCliente(cid, depois, pre){
   window._cliDepois = depois || null;
   window._cliOrig = cid ? { status:c.status, data:c.proximo_contato || '' } : null;
   const rap = [['Hoje',0],['Amanhã',1],['+2',2],['+3',3],['+7',7],['+15',15],['+30',30]];
-  openModal(cid ? 'Editar cliente' : 'Novo contato', `
+  // pre._voz: resposta do comando de voz, para a faixa do que foi ouvido.
+  openModal(cid ? 'Editar cliente' : 'Novo contato', `${!cid && pre?._voz ? vozBanner(pre._voz) : ''}
     <div class="f2"><div class="field"><label>Nome</label><input class="in" id="cl-nome" value="${esc(c?.nome || '')}"></div>
       <div class="field"><label>WhatsApp</label><input class="in" id="cl-wa" inputmode="tel" value="${esc(c?.whatsapp || '')}" oninput="cliDup('${cid || ''}')"></div></div>
     <div id="cl-walink"></div><div id="cl-dup"></div>
