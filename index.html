@@ -384,7 +384,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.4.0';
+const APP_VER = '1.4.1';
 
 /* ═══ Cliente Supabase ═══════════════════════════════════════════════
    Escrito à parte, e não copiado do Diligências, porque o de lá aceita
@@ -455,7 +455,27 @@ function parseMoney(s){
   if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
   const n = parseFloat(s); return isFinite(n) ? Math.round(n*100)/100 : 0;
 }
-const moneyIn = v => num(v) ? num(v).toFixed(2).replace('.', ',') : '';
+const moneyIn = v => num(v) ? num(v).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 }) : '';
+// Campo de dinheiro com máscara, igual ao Fullfin e às Diligências: digita
+// só números e eles entram pelos centavos (2500 → 25,00). Ninguém digita
+// vírgula. Vale para todo <input data-money>, inclusive os criados depois
+// (escuta no document). Em captura, roda antes dos oninput dos campos, que
+// assim já leem o valor formatado. O valor continua sendo lido por
+// parseMoney, que entende "1.234,56".
+document.addEventListener('input', e => {
+  const el = e.target;
+  if (!el.matches || !el.matches('input[data-money]')) return;
+  const dig = el.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 12);
+  el.value = dig ? (parseInt(dig, 10) / 100).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 }) : '';
+  requestAnimationFrame(() => { try { el.setSelectionRange(el.value.length, el.value.length); } catch(_) {} });
+}, true);
+// Cursor sempre no fim: a máscara só acrescenta e apaga pela direita, então
+// cursor no começo fazia o apagar não funcionar.
+document.addEventListener('focusin', e => {
+  const el = e.target;
+  if (el.matches && el.matches('input[data-money]'))
+    requestAnimationFrame(() => { try { el.setSelectionRange(el.value.length, el.value.length); } catch(_) {} });
+});
 // Tempo: "1h30", "1:30", "90" (minutos), "2h", "1,5h".
 function parseTempo(s){
   s = String(s ?? '').trim().toLowerCase().replace(/\s/g, '');
@@ -963,7 +983,7 @@ function vOrc(r){
     <div class="f3">
       <div class="field"><label>Validade (dias)</label><input class="in num" inputmode="numeric" data-o="validade_dias" data-kind="int" value="${esc(o.validade_dias)}" ${dis}></div>
       <div class="field"><label>Garantia (dias)</label><input class="in num" inputmode="numeric" data-o="garantia_dias" data-kind="int" value="${esc(o.garantia_dias)}" ${dis}></div>
-      <div class="field"><label>Entrada (R$)</label><input class="in num" inputmode="decimal" data-o="entrada_valor" data-kind="money" value="${moneyIn(o.entrada_valor)}" ${dis} placeholder="0,00"></div>
+      <div class="field"><label>Entrada (R$)</label><input class="in num" inputmode="numeric" data-money data-o="entrada_valor" data-kind="money" value="${moneyIn(o.entrada_valor)}" ${dis} placeholder="0,00"></div>
     </div>
     ${ed ? `<div class="sug" style="margin:-4px 0 10px" id="ent-sug"></div>` : ''}
     <div class="field"><label>Execução</label><textarea class="in" data-o="texto_execucao" ${dis}>${esc(o.texto_execucao || '')}</textarea></div>
@@ -1002,8 +1022,8 @@ function itemHtml(it, n, ed){
   <div class="item interno" data-item="${id}">
     <div class="item-h"><div class="item-n">${ic('lock')}</div><div class="sp" style="font-size:12.5px;color:var(--text3);font-weight:600">Custo interno · não aparece para o cliente</div>${ed ? itemBtns(it) : ''}</div>
     <div class="field"><label>O que é</label><input class="in" data-i="titulo" value="${esc(it.titulo)}" ${dis} placeholder="Ex.: ajudante sábado, alimentação"></div>
-    <div class="f2"><div class="field" style="margin:0"><label>Material / despesa (R$)</label><input class="in num money" inputmode="decimal" data-i="material_custo" data-kind="money" value="${moneyIn(it.material_custo)}" ${dis}></div>
-      <div class="field" style="margin:0"><label>Pagamento a pessoa (R$)</label><input class="in num money" inputmode="decimal" data-i="mao_obra" data-kind="money" value="${moneyIn(it.mao_obra)}" ${dis}></div></div>
+    <div class="f2"><div class="field" style="margin:0"><label>Material / despesa (R$)</label><input class="in num money" inputmode="numeric" data-money data-i="material_custo" data-kind="money" value="${moneyIn(it.material_custo)}" ${dis}></div>
+      <div class="field" style="margin:0"><label>Pagamento a pessoa (R$)</label><input class="in num money" inputmode="numeric" data-money data-i="mao_obra" data-kind="money" value="${moneyIn(it.mao_obra)}" ${dis}></div></div>
   </div>`;
   const sug = sugerido(it), manual = num(it.preco_cliente) !== sug;
   return `
@@ -1014,11 +1034,11 @@ function itemHtml(it, n, ed){
     <div class="f2">
       <div class="field"><label>Tempo</label><input class="in num" data-i="tempo_estimado_min" data-kind="tempo" value="${esc(fmtTempo(it.tempo_estimado_min))}" ${dis} placeholder="1h30"></div>
       <div class="field"><label>Margem material %</label><input class="in num" inputmode="decimal" data-i="margem_material_pct" data-kind="pct" value="${esc(num(it.margem_material_pct))}" ${dis}></div>
-      <div class="field"><label>Material previsto (R$)</label><input class="in num money" inputmode="decimal" data-i="material_custo" data-kind="money" value="${moneyIn(it.material_custo)}" ${dis} placeholder="0,00"></div>
-      <div class="field"><label>Mão de obra (R$)</label><input class="in num money" inputmode="decimal" data-i="mao_obra" data-kind="money" value="${moneyIn(it.mao_obra)}" ${dis} placeholder="0,00"></div>
+      <div class="field"><label>Material previsto (R$)</label><input class="in num money" inputmode="numeric" data-money data-i="material_custo" data-kind="money" value="${moneyIn(it.material_custo)}" ${dis} placeholder="0,00"></div>
+      <div class="field"><label>Mão de obra (R$)</label><input class="in num money" inputmode="numeric" data-money data-i="mao_obra" data-kind="money" value="${moneyIn(it.mao_obra)}" ${dis} placeholder="0,00"></div>
     </div>
     <div class="price-box"><span class="lbl" style="flex:1">Preço ao cliente</span>
-      <input class="in num" style="width:150px" inputmode="decimal" data-i="preco_cliente" data-kind="money" value="${moneyIn(it.preco_cliente)}" ${dis}></div>
+      <input class="in num" style="width:150px" inputmode="numeric" data-money data-i="preco_cliente" data-kind="money" value="${moneyIn(it.preco_cliente)}" ${dis}></div>
     <div class="sug" data-sug="${id}">${sugHtml(it)}</div>
   </div>`;
 }
@@ -1124,8 +1144,8 @@ function modalItem(oid, tipo = 'servico'){
   if (tipo === 'custo_interno') {
     openModal('Custo interno', `<p class="hint" style="color:var(--text3);font-size:13px;margin:-6px 0 12px">Não aparece para o cliente nem soma no total. Entra só na sua conta de lucro.</p>
       <div class="field"><label>O que é</label><input class="in" id="ni-tit" placeholder="Ex.: ajudante sábado"></div>
-      <div class="f2"><div class="field"><label>Material / despesa (R$)</label><input class="in num" id="ni-mat" inputmode="decimal"></div>
-        <div class="field"><label>Pagamento a pessoa (R$)</label><input class="in num" id="ni-mo" inputmode="decimal"></div></div>
+      <div class="f2"><div class="field"><label>Material / despesa (R$)</label><input class="in num" id="ni-mat" inputmode="numeric" data-money></div>
+        <div class="field"><label>Pagamento a pessoa (R$)</label><input class="in num" id="ni-mo" inputmode="numeric" data-money></div></div>
       <button class="btn btn-p btn-w" onclick="criarItem('${oid}','custo_interno')">Adicionar</button>`);
     return;
   }
@@ -1134,8 +1154,8 @@ function modalItem(oid, tipo = 'servico'){
     <div class="field"><label>Descrição para o cliente</label><textarea class="in" id="ni-desc" style="min-height:54px" placeholder="Fornecimento e instalação de…"></textarea></div>
     <div class="f2"><div class="field"><label>Tempo</label><input class="in num" id="ni-tempo" placeholder="1h30"></div>
       <div class="field"><label>Margem material %</label><input class="in num" id="ni-marg" inputmode="decimal" value="${m}"></div>
-      <div class="field"><label>Material previsto (R$)</label><input class="in num" id="ni-mat" inputmode="decimal" oninput="niPreview()"></div>
-      <div class="field"><label>Mão de obra (R$)</label><input class="in num" id="ni-mo" inputmode="decimal" oninput="niPreview()"></div></div>
+      <div class="field"><label>Material previsto (R$)</label><input class="in num" id="ni-mat" inputmode="numeric" data-money oninput="niPreview()"></div>
+      <div class="field"><label>Mão de obra (R$)</label><input class="in num" id="ni-mo" inputmode="numeric" data-money oninput="niPreview()"></div></div>
     <div class="price-box" style="margin-bottom:14px"><span class="lbl" style="flex:1">Preço ao cliente (sugerido)</span><b class="cond money" id="ni-prev" style="font-size:22px">R$ 0,00</b></div>
     <button class="btn btn-p btn-w" onclick="criarItem('${oid}','servico')">Adicionar</button>`);
   $('ni-marg').addEventListener('input', niPreview);
@@ -1574,8 +1594,8 @@ function modalNovoServico(data){
       <button class="btn btn-s btn-sm" onclick="nsNovoCliente()">${ic('plus')}</button></div></div>
     <div class="field"><label>Endereço</label><input class="in" id="ns-end"></div>
     <div class="f2"><div class="field"><label>Bairro</label><input class="in" id="ns-bai"></div><div class="field"><label>Cidade</label><input class="in" id="ns-cid"></div></div>
-    <div class="f2"><div class="field"><label>Valor cobrado (R$)</label><input class="in num" id="ns-val" inputmode="decimal"></div>
-      <div class="field"><label>Material previsto (R$)</label><input class="in num" id="ns-mat" inputmode="decimal"></div></div>
+    <div class="f2"><div class="field"><label>Valor cobrado (R$)</label><input class="in num" id="ns-val" inputmode="numeric" data-money></div>
+      <div class="field"><label>Material previsto (R$)</label><input class="in num" id="ns-mat" inputmode="numeric" data-money></div></div>
     <div class="f3"><div class="field"><label>Data</label><input class="in" type="date" id="ns-data" value="${data || ''}"></div>
       <div class="field"><label>Início</label><input class="in" type="time" id="ns-ini"></div><div class="field"><label>Fim</label><input class="in" type="time" id="ns-fim"></div></div>
     <div id="ns-warn"></div>
@@ -1700,8 +1720,8 @@ function modalEditServ(sid){
     <div class="field"><label>Endereço</label><input class="in" id="es-end" value="${esc(s.endereco || '')}"></div>
     <div class="f2"><div class="field"><label>Bairro</label><input class="in" id="es-bai" value="${esc(s.bairro || '')}"></div>
       <div class="field"><label>Cidade</label><input class="in" id="es-cid" value="${esc(s.cidade || '')}"></div></div>
-    <div class="f2"><div class="field"><label>Valor cobrado (R$)</label><input class="in num" id="es-val" inputmode="decimal" value="${moneyIn(s.valor_cobrado)}"></div>
-      <div class="field"><label>Material previsto (R$)</label><input class="in num" id="es-mat" inputmode="decimal" value="${moneyIn(s.custo_material)}"></div></div>
+    <div class="f2"><div class="field"><label>Valor cobrado (R$)</label><input class="in num" id="es-val" inputmode="numeric" data-money value="${moneyIn(s.valor_cobrado)}"></div>
+      <div class="field"><label>Material previsto (R$)</label><input class="in num" id="es-mat" inputmode="numeric" data-money value="${moneyIn(s.custo_material)}"></div></div>
     <div class="field"><label>Observações</label><textarea class="in" id="es-obs">${esc(s.observacoes || '')}</textarea></div>
     <button class="btn btn-p btn-w" onclick="salvarServ('${sid}')">Salvar</button>`);
 }
@@ -1770,7 +1790,7 @@ function modalReceb(sid, rid){
   const x = rid ? S.receb.find(r => r.id === rid) : null;
   openModal(x ? 'Editar lançamento' : 'Novo recebimento', `
     <div class="f2"><div class="field"><label>Descrição</label><input class="in" id="rc-desc" value="${esc(x?.descricao || 'Pagamento')}"></div>
-      <div class="field"><label>Valor (R$)</label><input class="in num" id="rc-val" inputmode="decimal" value="${x ? moneyIn(x.valor) : ''}"></div></div>
+      <div class="field"><label>Valor (R$)</label><input class="in num" id="rc-val" inputmode="numeric" data-money value="${x ? moneyIn(x.valor) : ''}"></div></div>
     <div class="f2"><div class="field"><label>Previsão</label><input class="in" type="date" id="rc-prev" value="${x?.previsao || ''}"></div>
       <div class="field"><label>Recebido em</label><input class="in" type="date" id="rc-rec" value="${x?.recebido_em || ''}"></div></div>
     <div class="field"><label>Forma</label><div class="chips" id="rc-forma">${FORMAS.map(f => `<button class="chip ${x?.forma_pagamento === f ? 'on' : ''}" onclick="chipUnico(this)">${f}</button>`).join('')}</div></div>
@@ -1828,7 +1848,7 @@ function modalVinc(sid, vid){
       </select><button class="btn btn-s btn-sm" onclick="modalPrestador(null, pid => { modalVinc('${sid}'${v ? `,'${v.id}'` : ''}); setTimeout(() => { $('vc-pre').value = pid; vcPre(); }, 0); })">${ic('plus')}</button></div>
       <div class="hint">"A definir" marca que precisa de alguém, mesmo antes de saber quem.</div></div>
     <div class="f2"><div class="field"><label>Função</label><input class="in" id="vc-fun" value="${esc(v?.funcao || '')}" placeholder="Ex.: eletricista"></div>
-      <div class="field"><label>Repasse (R$)</label><input class="in num" id="vc-val" inputmode="decimal" value="${v ? moneyIn(v.valor_repasse) : ''}"></div></div>
+      <div class="field"><label>Repasse (R$)</label><input class="in num" id="vc-val" inputmode="numeric" data-money value="${v ? moneyIn(v.valor_repasse) : ''}"></div></div>
     ${v?.repasse_status === 'pago' ? `<div class="field"><label>Saiu de</label>${segConta('vc-conta', v.conta)}</div>` : ''}
     <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarVinc('${sid}', ${v ? `'${v.id}'` : 'null'})">Salvar</button>
       ${v ? `<button class="btn btn-d" onclick="excluirVinc('${v.id}')">${ic('trash')}</button>` : ''}</div>
@@ -1938,7 +1958,7 @@ function modalGasto(op = {}){
     || (s.status === 'executado' && agendasDe(s.id).some(a => a.data >= addDias(hoje(), -30))));
   const escolheObra = !op.sid || g;
   openModal(g ? 'Editar gasto' : (op.fixo ? 'Custo fixo' : 'Novo gasto'), `
-    <div class="f2"><div class="field"><label>Valor (R$)</label><input class="in num" id="gs-val" inputmode="decimal" value="${g ? moneyIn(g.valor) : ''}"></div>
+    <div class="f2"><div class="field"><label>Valor (R$)</label><input class="in num" id="gs-val" inputmode="numeric" data-money value="${g ? moneyIn(g.valor) : ''}"></div>
       <div class="field"><label>Data</label><input class="in" type="date" id="gs-data" value="${g?.data || hoje()}"></div></div>
     <div class="field"><label>Categoria</label><div class="chips" id="gs-cat">${Object.entries(CAT_GASTO).map(([k,t]) =>
       `<button class="chip ${(g?.categoria || (op.fixo ? '' : 'material')) === k ? 'on' : ''}" data-v="${k}" onclick="chipUnico(this)">${t}</button>`).join('')}</div></div>
@@ -2015,7 +2035,7 @@ function modalTransf(tid){
   openModal(t ? 'Editar transferência' : 'Transferência', `
     <div class="field"><div class="seg" id="tf-sent">${[['para_voce','PJ → você (retirada)'],['para_empresa','Você → PJ (aporte)']].map(([k,l]) =>
       `<button type="button" data-v="${k}" class="${(t?.sentido || 'para_voce') === k ? 'on' : ''}" onclick="segPick(this)">${l}</button>`).join('')}</div></div>
-    <div class="f2"><div class="field"><label>Valor (R$)</label><input class="in num" id="tf-val" inputmode="decimal" value="${t ? moneyIn(t.valor) : ''}"></div>
+    <div class="f2"><div class="field"><label>Valor (R$)</label><input class="in num" id="tf-val" inputmode="numeric" data-money value="${t ? moneyIn(t.valor) : ''}"></div>
       <div class="field"><label>Data</label><input class="in" type="date" id="tf-data" value="${t?.data || hoje()}"></div></div>
     <div class="field"><label>Descrição</label><input class="in" id="tf-desc" value="${esc(t?.descricao || '')}" placeholder="Opcional"></div>
     <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarTransf(${t ? `'${t.id}'` : 'null'})">Salvar</button>
@@ -2260,7 +2280,7 @@ function modalPrestador(pid, depois){
     <div class="field"><label>Onde atende</label>${chipsHtml('pr-cid', CIDADES, p?.cidades)}</div>
     <div class="f2"><div class="field"><label>Tipo de PIX</label><select class="in" id="pr-pixt">${['','CPF','CNPJ','Celular','E-mail','Aleatória'].map(t => `<option ${p?.pix_tipo === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
       <div class="field"><label>Chave PIX</label><input class="in" id="pr-pix" value="${esc(p?.pix || '')}"></div></div>
-    <div class="field"><label>Valor padrão / diária (R$)</label><input class="in num" id="pr-dia" inputmode="decimal" value="${p ? moneyIn(p.diaria_padrao) : ''}">
+    <div class="field"><label>Valor padrão / diária (R$)</label><input class="in num" id="pr-dia" inputmode="numeric" data-money value="${p ? moneyIn(p.diaria_padrao) : ''}">
       <div class="hint">Só sugere o repasse. O que vale é o valor em cada serviço.</div></div>
     <div class="field"><label>Observações</label><textarea class="in" id="pr-obs">${esc(p?.observacoes || '')}</textarea></div>
     <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarPrestador(${p ? `'${p.id}'` : 'null'})">Salvar</button>
