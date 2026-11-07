@@ -384,7 +384,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.3.1';
+const APP_VER = '1.4.0';
 
 /* ═══ Cliente Supabase ═══════════════════════════════════════════════
    Escrito à parte, e não copiado do Diligências, porque o de lá aceita
@@ -618,7 +618,9 @@ function totaisServ(sid){
   const gs = gastosDe(sid), gastoReal = gs.reduce((t,g) => t + num(g.valor), 0), temGasto = gs.length > 0;
   const previsto = num(s?.custo_material);
   const lucroPrev = num(s?.valor_cobrado) - previsto - repasse;
-  const lucro = num(s?.valor_cobrado) - (temGasto ? gastoReal : previsto) - repasse;
+  // Finalizado: vale o lucro guardado na finalização, que é o que foi
+  // para o Fullfin (recebido − gastos − repasses).
+  const lucro = s?.finalizado_em ? num(s.lucro_final) : num(s?.valor_cobrado) - (temGasto ? gastoReal : previsto) - repasse;
   return { repasse, repPago, lancado, recebido, aReceber: lancado - recebido, lucro, lucroPrev, previsto, gastoReal, temGasto };
 }
 const orcEditavel = o => o && (o.status === 'rascunho' || o.status === 'enviado');
@@ -772,6 +774,7 @@ function vPainel(){
     <button class="btn btn-s" style="flex:1" onclick="modalNovoServico()">${ic('plus')} Serviço direto</button>
     <button class="btn btn-s" style="flex:1" onclick="modalGasto({})">${ic('plus')} Gasto</button>
   </div>
+  ${servAFinalizar().length ? `<a class="warn" style="margin-top:10px;text-decoration:none" href="#/servicos">${ic('alert')}<span><b>${servAFinalizar().length}</b> serviço(s) executado(s) esperando finalizar. O lucro só vai para o Fullfin depois disso.</span></a>` : ''}
   ${totPendPF() ? `<a class="warn" style="margin-top:10px;text-decoration:none" href="#/financeiro">${ic('alert')}<span><b>${totPendPF()}</b> lançamento(s) passaram pela sua conta PF e falta acertar.</span></a>` : ''}
   <div class="sec">Próximos 7 dias <a class="lnk" href="#/agenda">Agenda</a></div>
   <div class="list">${linhas.length ? linhas.map(rowAgendaMista).join('') : '<div class="empty">Nada marcado nos próximos 7 dias.</div>'}</div>
@@ -1558,7 +1561,7 @@ function filtraServ(){ const y = window.scrollY; const v = servBusca; render(); 
 function rowServ(s){
   const c = cliente(s.cliente_id), t = totaisServ(s.id), ag = agendasDe(s.id), prox = ag.find(a => a.data >= hoje()) || ag[ag.length-1];
   return `<a class="row" href="#/serv/${s.id}"><div class="main"><div class="t">${esc(s.descricao)}</div>
-    <div class="m">${badgeServ(s)} ${c ? esc(nomeC(c)) : ''}${prox ? ' · ' + fmtData(prox.data) : ''}${t.aReceber > 0.005 ? ` · <span style="color:var(--red)">falta receber <span class="money">${money(t.aReceber)}</span></span>` : ''}</div></div>
+    <div class="m">${badgeServ(s)}${s.finalizado_em ? ' <span class="badge b-navy">Finalizado</span>' : ''} ${c ? esc(nomeC(c)) : ''}${prox ? ' · ' + fmtData(prox.data) : ''}${t.aReceber > 0.005 ? ` · <span style="color:var(--red)">falta receber <span class="money">${money(t.aReceber)}</span></span>` : ''}</div></div>
     <div class="r val">${m$(s.valor_cobrado)}</div></a>`;
 }
 
@@ -1610,11 +1613,13 @@ async function criarServico(){
 }
 
 function vServ(r){
+  if (r.sub === 'finalizar') return vFinalizar(r);
   const s = serv(r.id);
   if (!s) return `<a class="back" href="#/servicos">${ic('left')} Serviços</a><div class="card empty">Serviço não encontrado.</div>`;
   const c = cliente(s.cliente_id), o = s.orcamento_id ? orc(s.orcamento_id) : null, t = totaisServ(s.id);
   const ag = agendasDe(s.id), rs = recebDe(s.id), vs = vincDe(s.id), gs = gastosDe(s.id);
   const end = [s.endereco, s.bairro, s.cidade].filter(Boolean).join(', ');
+  const fin = !!s.finalizado_em;
   const wa = c?.whatsapp ? waLink(c.whatsapp) : null;
   const internosOrc = o ? itensDe(o.id).filter(i => i.tipo === 'custo_interno' && num(i.mao_obra) > 0) : [];
   return `
@@ -1630,6 +1635,12 @@ function vServ(r){
     ${s.observacoes ? `<div style="margin-top:10px;font-size:14px;color:var(--text2);white-space:pre-wrap">${esc(s.observacoes)}</div>` : ''}
   </div>
 
+  ${fin ? `<div class="card" style="margin-top:12px;display:flex;align-items:center;gap:12px;background:var(--green-bg);border-color:transparent">
+      <div style="flex:1"><div style="font-weight:700;color:var(--green)">${ic('check')} Finalizado em ${fmtData(s.finalizado_em)}</div>
+      <div style="font-size:13.5px;color:var(--text2)">Lucro de <b class="money">${money(s.lucro_final)}</b> enviado para o Fullfin. Valores travados.</div></div>
+      <button class="btn btn-sm btn-s" onclick="reabrirServ('${s.id}')">Reabrir</button></div>`
+    : s.status !== 'cancelado' ? `<button class="btn btn-p btn-w" style="margin-top:12px" onclick="go('#/serv/${s.id}/finalizar')">${ic('check')} Finalizar serviço</button>` : ''}
+
   <div class="sec">Status</div>
   <div class="seg">${Object.entries(ST_SERV).map(([k,[t]]) => `<button class="${s.status === k ? 'on' : ''}" onclick="setStatusServ('${s.id}','${k}')">${t}</button>`).join('')}</div>
 
@@ -1638,7 +1649,7 @@ function vServ(r){
     <div class="t">${horaFaixa(a)}</div><div class="m">${fmtDataLonga(a.data)} · bloqueado no Diligências</div></div>${ic('edit')}</button>`).join('')
     : `<div class="empty">Nenhum dia marcado. <button class="lnk" style="border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer" onclick="modalAgenda('${s.id}')">Marcar agora</button></div>`}</div>
 
-  <div class="sec">Recebimentos do cliente <button class="lnk" onclick="modalReceb('${s.id}')">+ Lançar</button></div>
+  <div class="sec">Recebimentos do cliente ${fin ? '' : `<button class="lnk" onclick="modalReceb('${s.id}')">+ Lançar</button>`}</div>
   <div class="list">${rs.length ? rs.map(x => `<div class="row" style="cursor:default"><div class="main" onclick="modalReceb('${s.id}','${x.id}')" style="cursor:pointer">
       <div class="t">${esc(x.descricao)} · <span class="money">${money(x.valor)}</span></div>
       <div class="m">${x.recebido_em ? `<span style="color:var(--green);font-weight:700">Recebido ${fmtData(x.recebido_em)}</span>${x.forma_pagamento ? ' · ' + esc(x.forma_pagamento) : ''}${pfInfo('receb', x)}` : (x.previsao ? `Previsto ${fmtData(x.previsao)}${x.previsao < hoje() ? ' · <b style="color:var(--red)">atrasado</b>' : ''}` : 'Sem previsão')}</div></div>
@@ -1646,7 +1657,7 @@ function vServ(r){
     : '<div class="empty">Nada lançado.</div>'}</div>
   ${Math.abs(t.lancado - num(s.valor_cobrado)) > 0.005 ? `<div class="warn" style="margin-top:8px">${ic('alert')}<span>Lançado <b class="money">${money(t.lancado)}</b>, mas o serviço vale <b class="money">${money(s.valor_cobrado)}</b>. ${t.lancado < num(s.valor_cobrado) ? `<button class="lnk" style="border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer;padding:0" onclick="lancarDiferenca('${s.id}')">Lançar a diferença</button>` : ''}</span></div>` : ''}
 
-  <div class="sec">Prestadores e repasses <button class="lnk" onclick="modalVinc('${s.id}')">+ Prestador</button></div>
+  <div class="sec">Prestadores e repasses ${fin ? '' : `<button class="lnk" onclick="modalVinc('${s.id}')">+ Prestador</button>`}</div>
   <div class="list">${vs.length ? vs.map(v => { const p = prestador(v.prestador_id);
     return `<div class="row" style="cursor:default"><div class="main" onclick="modalVinc('${s.id}','${v.id}')" style="cursor:pointer">
       <div class="t">${p ? esc(p.nome) : '<span style="color:var(--red)">A definir</span>'}${v.funcao ? ' · ' + esc(v.funcao) : ''}</div>
@@ -1654,7 +1665,7 @@ function vServ(r){
       ${v.repasse_status === 'pago' ? `<span class="badge b-green">${ic('check')}</span>` : (p ? `<button class="btn btn-sm btn-p" onclick="pagarRepasse('${v.id}')">Paguei</button>` : '')}</div>`; }).join('')
     : `<div class="empty">Você mesmo faz. Se for terceirizar, adicione o prestador.${internosOrc.length ? `<br><button class="lnk" style="border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer;margin-top:6px" onclick="trazerInternos('${s.id}')">Trazer os ${internosOrc.length} custo(s) interno(s) do orçamento</button>` : ''}</div>`}</div>
 
-  <div class="sec">Gastos da obra <button class="lnk" onclick="modalGasto({ sid:'${s.id}' })">+ Gasto</button></div>
+  <div class="sec">Gastos da obra ${fin ? '' : `<button class="lnk" onclick="modalGasto({ sid:'${s.id}' })">+ Gasto</button>`}</div>
   <div class="list">${gs.length ? gs.map(rowGasto).join('')
     : `<div class="empty">Nenhum gasto lançado. Enquanto não lançar, o lucro usa o material previsto (<span class="money">${money(t.previsto)}</span>).</div>`}</div>
 
@@ -1665,12 +1676,12 @@ function vServ(r){
       ? `<tr><td>Gastos da obra</td><td class="neg money">− ${money(t.gastoReal)}</td></tr>`
       : `<tr><td>Material previsto</td><td class="neg money">− ${money(t.previsto)}</td></tr>`}
     <tr><td>Repasses</td><td class="neg money">− ${money(t.repasse)}</td></tr>
-    <tr class="tot"><td>${t.temGasto ? 'Seu lucro real' : 'Seu lucro previsto'}</td><td class="money" style="color:${t.lucro < 0 ? 'var(--red)' : 'var(--green)'}">${money(t.lucro)}</td></tr>
+    <tr class="tot"><td>${fin ? 'Lucro final' : t.temGasto ? 'Seu lucro real' : 'Seu lucro previsto'}</td><td class="money" style="color:${t.lucro < 0 ? 'var(--red)' : 'var(--green)'}">${money(t.lucro)}</td></tr>
     ${t.temGasto ? `<tr><td style="color:var(--text3)">Previsto no orçamento</td><td class="money" style="color:var(--text3)">${money(t.lucroPrev)} <small>(${t.lucro - t.lucroPrev >= 0 ? '+' : '−'} ${money(Math.abs(t.lucro - t.lucroPrev))})</small></td></tr>` : ''}
     <tr><td style="color:var(--text3)">Já recebido</td><td class="money" style="color:var(--text3)">${money(t.recebido)}</td></tr>
     <tr><td style="color:var(--text3)">Falta receber</td><td class="money" style="color:var(--text3)">${money(t.aReceber)}</td></tr>
   </table></div>
-  <div class="btns" style="margin-top:16px"><button class="btn btn-d" onclick="excluirServ('${s.id}')">${ic('trash')} Excluir serviço</button></div>`;
+  ${fin ? '' : `<div class="btns" style="margin-top:16px"><button class="btn btn-d" onclick="excluirServ('${s.id}')">${ic('trash')} Excluir serviço</button></div>`}`;
 }
 
 async function setStatusServ(sid, st){
@@ -1818,15 +1829,17 @@ function modalVinc(sid, vid){
       <div class="hint">"A definir" marca que precisa de alguém, mesmo antes de saber quem.</div></div>
     <div class="f2"><div class="field"><label>Função</label><input class="in" id="vc-fun" value="${esc(v?.funcao || '')}" placeholder="Ex.: eletricista"></div>
       <div class="field"><label>Repasse (R$)</label><input class="in num" id="vc-val" inputmode="decimal" value="${v ? moneyIn(v.valor_repasse) : ''}"></div></div>
+    ${v?.repasse_status === 'pago' ? `<div class="field"><label>Saiu de</label>${segConta('vc-conta', v.conta)}</div>` : ''}
     <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarVinc('${sid}', ${v ? `'${v.id}'` : 'null'})">Salvar</button>
       ${v ? `<button class="btn btn-d" onclick="excluirVinc('${v.id}')">${ic('trash')}</button>` : ''}</div>
-    ${v?.repasse_status === 'pago' ? `<button class="btn btn-g btn-w" style="margin-top:8px" onclick="desfazerRepasse('${v.id}')">Desfazer "pago"</button>` : ''}`);
+    ${v?.repasse_status === 'pago' && !serv(sid)?.finalizado_em ? `<button class="btn btn-g btn-w" style="margin-top:8px" onclick="desfazerRepasse('${v.id}')">Desfazer "pago"</button>` : ''}`);
 }
 function vcPre(){ const p = prestador(fv('vc-pre')); if (!p) return;
   if (!fv('vc-fun') && p.especialidades?.length) $('vc-fun').value = p.especialidades[0];
   if (!fv('vc-val') && num(p.diaria_padrao)) $('vc-val').value = moneyIn(p.diaria_padrao); }
 async function salvarVinc(sid, vid){
   const row = { prestador_id:fv('vc-pre') || null, funcao:fv('vc-fun').trim() || null, valor_repasse:parseMoney(fv('vc-val')) };
+  if ($('vc-conta')) Object.assign(row, contaPatch(segVal('vc-conta')));
   const ok = await act(async () => {
     if (vid) { const [n] = await db.upd('tdh_servico_prestadores', eqId(vid), row); Object.assign(S.vinc.find(x => x.id === vid), n); }
     else S.vinc.push(...await db.ins('tdh_servico_prestadores', { ...row, servico_id:sid }));
@@ -1920,7 +1933,8 @@ function rowGasto(g){
 function modalGasto(op = {}){
   const g = op.gid ? S.gastos.find(x => x.id === op.gid) : null;
   const sid = g ? g.servico_id : op.sid;
-  const obras = S.servicos.filter(s => s.status === 'a_agendar' || s.status === 'agendado' || s.id === sid
+  // Serviço finalizado fica de fora: o banco recusa gasto novo nele.
+  const obras = S.servicos.filter(s => s.id === sid || !s.finalizado_em).filter(s => s.status === 'a_agendar' || s.status === 'agendado' || s.id === sid
     || (s.status === 'executado' && agendasDe(s.id).some(a => a.data >= addDias(hoje(), -30))));
   const escolheObra = !op.sid || g;
   openModal(g ? 'Editar gasto' : (op.fixo ? 'Custo fixo' : 'Novo gasto'), `
@@ -2021,6 +2035,91 @@ function excluirTransf(tid){ closeModal();
   confirmar('Excluir transferência', 'Apagar esta transferência?', 'Excluir', async () => {
     const ok = await act(async () => { await db.del('tdh_transferencias', eqId(tid)); S.transf = S.transf.filter(t => t.id !== tid); return true; });
     if (ok) rerender(); }, true); }
+
+// ── Finalizar serviço (revisão) ────────────────────────────────────
+// Tela de conferência antes de mandar o lucro para o Fullfin: tudo que
+// entrou, tudo que saiu e por onde, com edição e "+ Gasto" para o que
+// ficou esquecido. Quem calcula e grava o lucro é o banco
+// (tdh_finalizar_servico), com a mesma conta mostrada aqui.
+function vFinalizar(r){
+  const s = serv(r.id);
+  if (!s) return `<a class="back" href="#/servicos">${ic('left')} Serviços</a><div class="card empty">Serviço não encontrado.</div>`;
+  if (s.finalizado_em) { setTimeout(() => location.replace('#/serv/' + s.id), 0); return ''; }
+  const rs = recebDe(s.id), vs = vincDe(s.id), gs = gastosDe(s.id), t = totaisServ(s.id);
+  const recebido = rs.filter(x => x.recebido_em).reduce((a,x) => a + num(x.valor), 0);
+  const faltaReceb = rs.filter(x => !x.recebido_em), faltaRep = vs.filter(v => v.repasse_status !== 'pago');
+  const lucro = recebido - t.gastoReal - t.repasse;
+  const pode = !faltaReceb.length && !faltaRep.length;
+  const conta = x => `<span class="badge ${x.conta === 'pf' ? 'b-yel' : 'b-gray'}">${x.conta === 'pf' ? 'PF' : 'PJ'}</span>`;
+  return `
+  <a class="back" href="#/serv/${s.id}">${ic('left')} ${esc(s.descricao)}</a>
+  <div class="pg-head"><div><h2 class="pg">Revisar e finalizar</h2>
+    <div class="pg-sub">Confira o que entrou e o que saiu. Toque em qualquer linha para corrigir.</div></div></div>
+
+  ${faltaReceb.length || faltaRep.length ? `<div class="warn">${ic('alert')}<span>Para finalizar, resolva antes:
+    ${faltaReceb.length ? `<br>· ${faltaReceb.length} recebimento(s) sem baixa` : ''}${faltaRep.length ? `<br>· ${faltaRep.length} repasse(s) a pagar` : ''}</span></div>` : ''}
+
+  <div class="sec">Entrou (recebido do cliente)</div>
+  <div class="list">${rs.length ? rs.map(x => `<div class="row" onclick="modalReceb('${s.id}','${x.id}')"><div class="main">
+      <div class="t">${esc(x.descricao)} ${x.recebido_em ? conta(x) : ''}</div>
+      <div class="m">${x.recebido_em ? `Recebido ${fmtData(x.recebido_em)}${x.forma_pagamento ? ' · ' + esc(x.forma_pagamento) : ''}` : '<b style="color:var(--red)">sem baixa</b>'}</div></div>
+      ${x.recebido_em ? `<div class="r val">${m$(x.valor)}</div>` : `<button class="btn btn-sm btn-p" onclick="event.stopPropagation();modalBaixa('${x.id}')">Recebi</button>`}</div>`).join('')
+    : '<div class="empty">Nada lançado. O lucro vai sair negativo.</div>'}</div>
+  <div style="text-align:right;margin-top:6px"><button class="lnk" style="border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer" onclick="modalReceb('${s.id}')">+ Recebimento</button></div>
+
+  <div class="sec">Saiu · gastos da obra</div>
+  <div class="list">${gs.length ? gs.map(g => `<div class="row" onclick="modalGasto({ gid:'${g.id}' })"><div class="main">
+      <div class="t">${CAT_GASTO[g.categoria] || g.categoria}${g.descricao ? ' · ' + esc(g.descricao) : ''} ${conta(g)}</div>
+      <div class="m">${fmtData(g.data)}${g.conta === 'pf' ? ' · ' + (g.acerto ? ACERTO_TXT[g.acerto] : 'acerto pendente') : ''}</div></div>
+      <div class="r val">${m$(g.valor)}</div></div>`).join('')
+    : `<div class="empty">Nenhum gasto lançado.${t.previsto ? ` O orçamento previa <span class="money">${money(t.previsto)}</span> de material.` : ''}</div>`}</div>
+  <button class="btn btn-s btn-w" style="margin-top:8px" onclick="modalGasto({ sid:'${s.id}' })">${ic('plus')} Gasto esquecido</button>
+
+  <div class="sec">Saiu · repasses</div>
+  <div class="list">${vs.length ? vs.map(v => { const p = prestador(v.prestador_id);
+    return `<div class="row" onclick="modalVinc('${s.id}','${v.id}')"><div class="main">
+      <div class="t">${p ? esc(p.nome) : '<span style="color:var(--red)">A definir</span>'}${v.funcao ? ' · ' + esc(v.funcao) : ''} ${v.repasse_status === 'pago' ? conta(v) : ''}</div>
+      <div class="m">${v.repasse_status === 'pago' ? 'Pago ' + fmtData(v.repassado_em) : '<b style="color:var(--red)">a pagar</b>'}</div></div>
+      ${v.repasse_status === 'pago' ? `<div class="r val">${m$(v.valor_repasse)}</div>` : (p ? `<button class="btn btn-sm btn-p" onclick="event.stopPropagation();pagarRepasse('${v.id}')">Paguei</button>` : '')}</div>`; }).join('')
+    : '<div class="empty">Sem repasse: você mesmo fez.</div>'}</div>
+
+  <div class="sec">Resultado</div>
+  <div class="card"><table class="sumtab">
+    <tr><td>Recebido</td><td class="money">${money(recebido)}</td></tr>
+    <tr><td>Gastos da obra</td><td class="neg money">− ${money(t.gastoReal)}</td></tr>
+    <tr><td>Repasses</td><td class="neg money">− ${money(t.repasse)}</td></tr>
+    <tr class="tot"><td>Vai para o Fullfin</td><td class="money" style="color:${lucro < 0 ? 'var(--red)' : 'var(--green)'}">${money(lucro)}</td></tr>
+    <tr><td style="color:var(--text3)">Previsto no orçamento</td><td class="money" style="color:var(--text3)">${money(t.lucroPrev)}</td></tr>
+  </table>
+  ${Math.abs(recebido - num(s.valor_cobrado)) > 0.005 && pode ? `<div class="hint" style="margin-top:8px">O serviço vale ${money(s.valor_cobrado)}, mas entrou ${money(recebido)}. Vale o que entrou.</div>` : ''}
+  ${lucro < 0 ? `<div class="hint" style="margin-top:8px">Prejuízo: vai para o Fullfin como despesa.</div>` : ''}</div>
+
+  <button class="btn btn-p btn-w" style="margin-top:16px" ${pode ? '' : 'disabled'} onclick="finalizarServ('${s.id}')">${ic('check')} Confirmar e finalizar</button>
+  <div class="hint" style="text-align:center;margin-top:8px">Depois de finalizar, os valores ficam travados. Para corrigir, use Reabrir.</div>`;
+}
+function finalizarServ(sid){
+  const s = serv(sid);
+  // Sem nenhum gasto o lucro sai igual ao recebido: quase sempre é nota
+  // esquecida, então avisa antes de gravar.
+  const semGasto = !gastosDe(sid).length && num(s.custo_material) > 0
+    ? `<b>Nenhum gasto lançado</b>, e o orçamento previa ${money(s.custo_material)} de material. Se teve compra, volte e lance antes.<br><br>` : '';
+  confirmar('Finalizar serviço', `${semGasto}O lucro é gravado e fica disponível para importar no Fullfin. Gastos, recebimentos e repasses deste serviço ficam travados.`, 'Finalizar', async () => {
+    const ok = await act(async () => { await db.rpc('tdh_finalizar_servico', { p_sid:sid }); await load('servicos'); return true; });
+    if (ok) { toast('Finalizado. Lucro de ' + money(serv(sid).lucro_final) + ' pronto para o Fullfin.'); go('#/serv/' + sid); }
+  });
+}
+function reabrirServ(sid){
+  confirmar('Reabrir serviço', 'Os valores voltam a ser editáveis. Ao finalizar de novo, o lucro novo aparece para importar no Fullfin.', 'Reabrir', async () => {
+    const res = await act(async () => { const r = await db.rpc('tdh_reabrir_servico', { p_sid:sid }); await load('servicos'); return r || {}; });
+    if (!res) return;
+    if (res.ja_importado) openModal('Acerte no Fullfin', `<p style="margin:-4px 0 12px">O lucro de <b class="money">${money(res.lucro)}</b> deste serviço já foi importado no Fullfin.</p>
+      <p style="margin:0 0 14px;color:var(--text2)">Apague ou ajuste aquele lançamento lá (procure por "Lucro — ${esc(serv(sid)?.descricao || '')}"). Quando finalizar de novo, o valor novo aparece para importar, e os dois ficariam somados se o antigo continuar.</p>
+      <button class="btn btn-p btn-w" onclick="closeModal();rerender()">Entendi</button>`);
+    else { toast('Reaberto.'); rerender(); }
+  });
+}
+// Executado mas não finalizado: o lucro ainda não foi para o Fullfin.
+const servAFinalizar = () => S.servicos.filter(s => s.status === 'executado' && !s.finalizado_em);
 
 // ── Números do mês ─────────────────────────────────────────────────
 // Regime de caixa: conta o que entrou e saiu no mês, pela data em que o

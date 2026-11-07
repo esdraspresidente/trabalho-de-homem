@@ -88,6 +88,22 @@ Estrutura comentada em `previmater-ops/_sql/tdh_03_financeiro.sql`.
   o dinheiro andou (regime de caixa, bate com o extrato), saldo da conta PJ
   pelo app, custos fixos, gastos por categoria e transferências.
 
+## Finalizar serviço e Fullfin (v1.4.0)
+
+- **Finalizar serviço** abre a tela "Revisar e finalizar": tudo que entrou,
+  os gastos e os repasses, com a conta (PJ/PF) de cada um, edição e
+  "+ Gasto esquecido". Só libera com tudo recebido e repasses pagos.
+- Ao confirmar, o banco (`tdh_finalizar_servico`) grava `lucro_final`
+  = recebido − gastos − repasses. Os valores do serviço ficam travados
+  por trigger; conta e acerto continuam editáveis. **Reabrir** destrava e
+  avisa se o lucro já tinha sido importado no Fullfin.
+- **O Fullfin importa só:** o lucro de serviço finalizado (receita; prejuízo
+  vira despesa) e os custos fixos (despesa). Recebimento e repasse avulsos
+  não vão mais. Serviço que já tinha recebimento importado no modelo antigo
+  tem esse valor descontado do lucro, para não contar duas vezes.
+
+SQL: `previmater-ops/_sql/tdh_04_finalizar.sql`.
+
 ## Importar orçamento (montado no Claude)
 
 Em Orçamentos → "Importar orçamento", você cola o JSON que o Claude gera na
