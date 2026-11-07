@@ -194,6 +194,12 @@ main#view{padding-bottom:calc(var(--tab-h) + 92px + env(safe-area-inset-bottom))
   font-size:13px;color:#6B4A00;line-height:1.4}
 .voz-banner ul{margin:6px 0 0 16px;padding:0}
 .voz-vazio{outline:2px solid var(--yel) !important;outline-offset:1px}
+/* Assistente: conversa curta, a resposta mais nova embaixo. */
+.as-p{align-self:flex-end;background:var(--navy);color:#fff;border-radius:14px 14px 4px 14px;padding:9px 12px;font-size:14.5px;max-width:88%}
+.as-r{align-self:flex-start;background:var(--bg);border:1px solid var(--line);border-radius:14px 14px 14px 4px;padding:10px 12px;font-size:14.5px;line-height:1.45;white-space:pre-wrap;max-width:94%}
+.as-fio{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.as-itens{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.as-itens a{display:block;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;text-decoration:none;color:var(--navy);font-size:13.5px;font-weight:600}
 
 .field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;min-width:0}
 .field label,.lbl{font-size:12.5px;font-weight:700;color:var(--text2)}
@@ -386,7 +392,10 @@ table.pdf-t .ds{color:#5A6169;font-size:12px;margin-top:2px;line-height:1.4}
 <div id="app" class="hidden">
   <header class="top">
     <a class="brand" href="#/painel"><img src="simbolo.svg" alt=""><b>Trabalho <span>de Homem</span></b></a>
-    <button class="icon-btn" id="eye-btn" title="Ocultar valores" onclick="toggleOculto()"></button>
+    <div style="display:flex;gap:2px">
+      <button class="icon-btn" title="Perguntar ao assistente" onclick="assistAbrir()"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.8 7L4 20.5 5.5 16A8 8 0 1 1 21 12z"/><path d="M9 10h6M9 14h4"/></svg></button>
+      <button class="icon-btn" id="eye-btn" title="Ocultar valores" onclick="toggleOculto()"></button>
+    </div>
   </header>
   <nav class="side" id="side"></nav>
   <main id="view"></main>
@@ -423,7 +432,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.7.2';
+const APP_VER = '1.8.0';
 
 /* ═══ Cliente Supabase ═══════════════════════════════════════════════
    Escrito à parte, e não copiado do Diligências, porque o de lá aceita
@@ -2175,6 +2184,7 @@ async function vozEnviar(){
     const fd = new FormData();
     fd.append('audio', blob, 'comando.' + (tipo.includes('mp4') ? 'mp4' : tipo.includes('ogg') ? 'ogg' : 'webm'));
     fd.append('hoje', hoje());   // data LOCAL: a function roda em UTC
+    vozAnexarContexto(fd);
     const r = await fetch(VOZ_URL, { method:'POST', headers:{ Authorization:'Bearer ' + sess.access_token, apikey:SB_KEY }, body:fd });
     const j = await r.json().catch(() => ({ ok:false, erro:'resposta inválida (' + r.status + ')' }));
     loading(false);
@@ -2190,6 +2200,7 @@ async function vozEnviar(){
 // em outro aparelho depois que o app abriu), recarrega antes de abrir.
 async function vozAplicar(j){
   const c = j.campos || {};
+  if (j.acao === 'consulta') return assistResposta(j);
   if (j.acao === 'novo_gasto') return modalGasto({ voz:j });
   // Contato novo: mesmos padrões do botão "Novo contato" dos Retornos
   // (conversando, retorno em 2 dias), a não ser que a data tenha sido dita.
@@ -2239,9 +2250,168 @@ function vozNaoEntendi(transcricao, duvidas){
   openModal('Não entendi o comando', `
     ${transcricao ? `<div style="font-size:14px;margin-bottom:10px"><b>Você disse:</b> “${esc(transcricao)}”</div>` : ''}
     ${d ? `<ul style="margin:0 0 12px 18px;padding:0;font-size:13px;color:var(--text2)">${d}</ul>` : ''}
-    <div class="hint" style="font-size:13px;color:var(--text3);margin-bottom:14px">Exemplos: “gastei 89,50 no Balaroti na obra da Setup” · “a Setup aprovou o orçamento” · “recebi 300 da Setup no pix” · “paguei o João da obra da Setup” · “marca a Setup terça às 9” · “anota um contato, Carlos, 41 99876 5432, quer prateleira” · “custo fixo, 60 reais de anúncio no Instagram”.</div>
+    <div class="hint" style="font-size:13px;color:var(--text3);margin-bottom:14px">Para perguntar (“o que está atrasado?”), use o balão no alto da tela. Exemplos de comando: “gastei 89,50 no Balaroti na obra da Setup” · “a Setup aprovou o orçamento” · “recebi 300 da Setup no pix” · “paguei o João da obra da Setup” · “marca a Setup terça às 9” · “anota um contato, Carlos, 41 99876 5432, quer prateleira” · “custo fixo, 60 reais de anúncio no Instagram”.</div>
     <div class="btns"><button class="btn btn-s" style="flex:1" onclick="closeModal();setTimeout(vozToggle,250)">Falar de novo</button>
       <button class="btn btn-p" style="flex:1" onclick="closeModal();modalGasto({})">Lançar à mão</button></div>`);
+}
+
+// ── Assistente (perguntas) ─────────────────────────────────────────
+// "O que está atrasado?", "e a Setup, falta o quê?", "o que tenho amanhã?".
+//
+// Quem monta os fatos é ESTE código, com as mesmas regras das telas
+// (filaRet dos Retornos, atrasados e "aguardando o cliente" do Painel,
+// servAFinalizar). A IA só recebe esse resumo pronto e escreve a resposta:
+// não consulta o banco, não soma nada que não esteja aqui. Assim o número
+// que ela fala é o mesmo número que a tela mostra.
+//
+// Cada linha leva um código curto (C1, S1, E1). A IA devolve os códigos que
+// citou, e o app transforma em atalhos para a ficha — os ids nunca saem
+// do aparelho.
+//
+// Só leitura: nada aqui grava no banco.
+let _assist = { fio:[], mapa:{} };
+const ASSIST_MAX_FIO = 3;   // perguntas anteriores enviadas junto, para "e dele?"
+
+function vozSituacao(){
+  const h = hoje(), L = [], mapa = {};
+  const dias = d => Math.round((parseISO(h) - parseISO(d)) / 86400000);
+  const reg = (p, i, rota, rotulo) => { const c = p + (i + 1); mapa[c] = { rota, rotulo }; return c; };
+  const cliNome = id => { const c = cliente(id); return c ? nomeC(c) : 'sem cliente'; };
+  const cliCod = {};
+  S.clientes.forEach((c, i) => { cliCod[c.id] = reg('C', i, '#/cliente/' + c.id, nomeC(c)); });
+
+  L.push(`HOJE: ${h} (${fmtDataLonga(h)})`);
+
+  const { atr, hj, prox } = filaRet();
+  const linhaRet = c => `${cliCod[c.id]} ${nomeC(c)} — ${ST_CLI[c.status]?.[0] || c.status} — retorno ${fmtData(c.proximo_contato)}`
+    + (c.proximo_contato < h ? ` (ATRASADO ${dias(c.proximo_contato)} dia(s))` : c.proximo_contato === h ? ' (HOJE)' : '')
+    + (c.ultimo_contato ? ` — último contato ${fmtData(c.ultimo_contato)}` : '') + (c.whatsapp ? '' : ' — sem WhatsApp')
+    + (c.observacoes ? ` — obs: ${c.observacoes.replace(/\s+/g, ' ').slice(0, 160)}` : '');
+  L.push(`\nRETORNOS ATRASADOS (${atr.length}):`, ...atr.map(linhaRet));
+  L.push(`\nRETORNOS DE HOJE (${hj.length}):`, ...hj.map(linhaRet));
+  L.push(`\nRETORNOS DOS PRÓXIMOS 7 DIAS (${prox.length}):`, ...prox.map(linhaRet));
+
+  const enviados = S.orcs.filter(o => o.status === 'enviado');
+  const totEnv = enviados.reduce((t, o) => t + totaisOrc(o.id).total, 0);
+  L.push(`\nORÇAMENTOS EMITIDOS ESPERANDO RESPOSTA (${enviados.length}, total ${money(totEnv)}):`);
+  enviados.forEach((o, i) => {
+    const c = reg('E', i, '#/orc/' + o.id, 'Orçamento ' + numOrc(o));
+    const venc = o.emissao ? addDias(o.emissao, num(o.validade_dias) || 15) : null;
+    L.push(`${c} nº ${numOrc(o)} — ${o.cliente_nome || cliNome(o.cliente_id)}${o.cliente_id ? ' (' + cliCod[o.cliente_id] + ')' : ''} — ${money(totaisOrc(o.id).total)}`
+      + (o.emissao ? ` — emitido ${fmtData(o.emissao)}, há ${dias(o.emissao)} dia(s)` : '') + (venc ? (venc < h ? ` — VALIDADE VENCIDA em ${fmtData(venc)}` : ` — vale até ${fmtData(venc)}`) : ''));
+  });
+  const rasc = S.orcs.filter(o => o.status === 'rascunho');
+  L.push(`\nORÇAMENTOS EM RASCUNHO, AINDA NÃO EMITIDOS (${rasc.length}):`);
+  rasc.forEach((o, i) => { const c = reg('B', i, '#/orc/' + o.id, 'Rascunho · ' + (o.cliente_nome || cliNome(o.cliente_id)));
+    L.push(`${c} ${o.cliente_nome || cliNome(o.cliente_id)} — ${money(totaisOrc(o.id).total)} — criado ${fmtData(String(o.created_at).slice(0, 10))}`); });
+
+  // Serviços: mesmo recorte do app (finalizado e cancelado ficam fora).
+  const abertos = S.servicos.filter(s => !s.finalizado_em && s.status !== 'cancelado');
+  L.push(`\nSERVIÇOS EM ABERTO (${abertos.length}):`);
+  abertos.forEach((s, i) => {
+    const c = reg('S', i, '#/serv/' + s.id, s.descricao), t = totaisServ(s.id);
+    const ags = agendasDe(s.id).map(a => a.data).sort(), futuro = ags.find(d => d >= h), ult = ags.filter(d => d < h).pop();
+    const recAtr = S.receb.filter(r => r.servico_id === s.id && !r.recebido_em && r.previsao && r.previsao < h);
+    const repP = S.vinc.filter(v => v.servico_id === s.id && v.repasse_status !== 'pago');
+    L.push(`${c} ${s.descricao} — ${cliNome(s.cliente_id)}${s.cliente_id ? ' (' + cliCod[s.cliente_id] + ')' : ''} — ${ST_SERV[s.status]?.[0] || s.status}`
+      + (s.status === 'executado' ? ' (FEITO, FALTA FINALIZAR: o lucro só vai para o Fullfin depois)' : '')
+      + (futuro ? ` — próximo dia ${fmtData(futuro)}` : s.status !== 'executado' ? ' — SEM DIA MARCADO' : '') + (ult ? ` — último dia ${fmtData(ult)}` : '')
+      + ` — cobrado ${money(s.valor_cobrado)}, recebido ${money(t.recebido)}, falta receber ${money(t.aReceber)}`
+      + (recAtr.length ? ` (ATRASADO: ${recAtr.map(r => r.descricao + ' ' + money(r.valor) + ' previsto ' + fmtData(r.previsao)).join('; ')})` : '')
+      + ` — gastos lançados ${money(t.gastoReal)}` + (repP.length ? ` — repasse a pagar: ${repP.map(v => (prestador(v.prestador_id)?.nome || 'a definir') + ' ' + money(v.valor_repasse)).join('; ')}` : ''));
+  });
+
+  const ag = S.agendas.filter(a => a.data >= h && a.data <= addDias(h, 7) && agAtiva(a)).sort((a, b) => (a.data + (a.horario_inicio || '')).localeCompare(b.data + (b.horario_inicio || '')));
+  L.push(`\nAGENDA DO TRABALHO DE HOMEM, PRÓXIMOS 7 DIAS (${ag.length}):`);
+  ag.forEach(a => { const s = serv(a.servico_id); L.push(`${fmtDataLonga(a.data)} ${a.horario_inicio ? hhmm(a.horario_inicio) + (a.horario_fim ? '–' + hhmm(a.horario_fim) : '') : 'dia todo'} — ${s.descricao} — ${cliNome(s.cliente_id)}`); });
+  const dil = S.dil.filter(d => d.data >= h && d.data <= addDias(h, 7));
+  L.push(`\nDILIGÊNCIAS DO ESDRAS, PRÓXIMOS 7 DIAS (${S.dilOk ? dil.length : 'não consegui ler'}):`);
+  dil.forEach(d => L.push(`${fmtDataLonga(d.data)} ${d.horario ? hhmm(d.horario) : ''} — diligência${d.local ? ' em ' + d.local : ''}`));
+
+  L.push(`\nLANÇAMENTOS PELA CONTA PF ESPERANDO ACERTO: ${totPendPF()}`);
+  L.push(`\nTODOS OS CLIENTES (código — nome — status):`, ...S.clientes.map(c => `${cliCod[c.id]} ${nomeC(c)} — ${ST_CLI[c.status]?.[0] || c.status}${c.nao_contatar ? ' — não quer contato' : ''}`));
+  return { texto:L.join('\n'), mapa };
+}
+
+// Vai junto em todo envio de voz: se a fala for pergunta, a function já tem
+// com o que responder sem uma segunda viagem. Em conversa aberta, vai o
+// modo "consulta" (pula a escolha de ação) e as últimas perguntas.
+function vozAnexarContexto(fd){
+  // Erro aqui não pode derrubar o comando de gasto: sem situação, só a
+  // pergunta deixa de funcionar (a function avisa).
+  try { const sit = vozSituacao(); _assist.mapa = sit.mapa; fd.append('situacao', sit.texto); }
+  catch(e) { console.error('situação', e); }
+  if (_assist.aberto) {
+    fd.append('modo', 'consulta');
+    fd.append('historico', JSON.stringify(_assist.fio.slice(-ASSIST_MAX_FIO).map(x => ({ p:x.p, r:x.r }))));
+  }
+}
+
+function assistAbrir(){
+  // Fechar o modal encerra a conversa: o próximo toque no microfone verde
+  // volta a ser comando (gasto, recebi...), não pergunta. Embrulha o
+  // closeModal uma vez só, e desembrulha ao fechar.
+  if (!_assist.fecharOrig) {
+    _assist.fecharOrig = window.closeModal;
+    window.closeModal = function(){ _assist.aberto = false; const f = _assist.fecharOrig; _assist.fecharOrig = null; window.closeModal = f; f(); };
+  }
+  _assist.aberto = true;
+  openModal('Assistente', `<div class="as-fio" id="as-fio">${assistFioHtml()}</div>
+    <div style="display:flex;gap:8px;align-items:flex-end">
+      <textarea class="in" id="as-txt" rows="1" style="min-height:44px;flex:1" placeholder="Pergunte… ex.: o que está atrasado?"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();assistEnviarTexto()}"></textarea>
+      <button class="btn btn-p" style="padding:11px 13px" onclick="assistEnviarTexto()" aria-label="Enviar">${ic('send')}</button>
+      <button class="btn" style="padding:11px 13px;background:#25D366;color:#fff" onclick="vozToggle()" aria-label="Perguntar falando"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+    </div>
+    ${_assist.fio.length ? '' : `<div class="hint" style="font-size:12.5px;color:var(--text3);margin-top:10px">Exemplos: “o que está atrasado?” · “quem eu preciso retornar hoje?” · “e a Setup, falta o quê?” · “o que tenho amanhã?” · “quanto tenho para receber?”</div>`}
+    <div class="hint" style="font-size:12px;color:var(--text3);margin-top:8px">Só consulta: o assistente não muda nada no app.</div>`);
+  assistRolar();
+}
+function assistFioHtml(){
+  return _assist.fio.map(x => `<div class="as-p">${esc(x.p)}</div><div class="as-r">${esc(x.r)}${x.itens?.length ? `<div class="as-itens">${x.itens.map(c =>
+    `<a href="${_assist.mapaFio?.[c]?.rota || '#'}" onclick="closeModal()">${esc(_assist.mapaFio?.[c]?.rotulo || c)} ›</a>`).join('')}</div>` : ''}
+    <div style="margin-top:6px"><button class="lnk" style="border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer;padding:0;font-size:13px" onclick="assistOuvir(this)" data-t="${esc(x.r)}">Ouvir</button></div></div>`).join('');
+}
+function assistRolar(){ const f = $('as-fio'); if (f) f.lastElementChild?.scrollIntoView({ block:'end' }); }
+
+async function assistEnviarTexto(){
+  const t = fv('as-txt').trim(); if (!t || _voz.ocupado) return;
+  _voz.ocupado = true; loading(true);
+  try {
+    if (sess?.expires_at && sess.expires_at - 60 < Date.now()/1000) await refreshSess();
+    if (!sess?.access_token) throw new Error('Entre de novo no app.');
+    const fd = new FormData();
+    fd.append('texto', t); fd.append('hoje', hoje());
+    vozAnexarContexto(fd);
+    const r = await fetch(VOZ_URL, { method:'POST', headers:{ Authorization:'Bearer ' + sess.access_token, apikey:SB_KEY }, body:fd });
+    const j = await r.json().catch(() => ({ ok:false, erro:'resposta inválida (' + r.status + ')' }));
+    if (!j.ok) return toast(j.erro || 'Falhou.', true);
+    assistResposta(j);
+  } catch(e) { toast(e?.message || 'Sem conexão.', true); }
+  finally { _voz.ocupado = false; loading(false); }
+}
+
+// Resposta chega por voz (vozEnviar) ou por texto. Os códigos citados só
+// viram atalho se existirem no mapa montado no aparelho.
+function assistResposta(j){
+  const mapa = _assist.mapa || {};
+  _assist.mapaFio = { ...(_assist.mapaFio || {}), ...mapa };
+  const itens = (j.itens || []).filter(c => mapa[c]).slice(0, 8);
+  _assist.fio.push({ p:j.transcricao, r:j.resposta || 'Sem resposta.', itens });
+  if (_assist.fio.length > 20) _assist.fio = _assist.fio.slice(-20);
+  if (_assist.aberto && $('as-fio')) { $('as-fio').innerHTML = assistFioHtml(); $('as-txt').value = ''; assistRolar(); }
+  else assistAbrir();
+}
+
+// Leitura em voz alta pelo próprio celular (sem custo de API). Só quando a
+// pessoa toca: falar sozinho no meio de um cliente seria pior que ler.
+function assistOuvir(el){
+  try {
+    if (speechSynthesis.speaking) { speechSynthesis.cancel(); return; }
+    const u = new SpeechSynthesisUtterance(el.dataset.t); u.lang = 'pt-BR';
+    const v = speechSynthesis.getVoices().find(x => /pt[-_]BR/i.test(x.lang)); if (v) u.voice = v;
+    speechSynthesis.speak(u);
+  } catch(e) { toast('Este aparelho não lê em voz alta.', true); }
 }
 
 // ── Acerto com a PF ────────────────────────────────────────────────
