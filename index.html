@@ -384,7 +384,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.3.0';
+const APP_VER = '1.3.1';
 
 /* ═══ Cliente Supabase ═══════════════════════════════════════════════
    Escrito à parte, e não copiado do Diligências, porque o de lá aceita
@@ -935,6 +935,7 @@ function vOrc(r){
     <div class="pg-sub">${badgeOrc(o)} ${o.emissao ? 'Emitido ' + fmtData(o.emissao) + ' · válido até ' + fmtData(addDias(o.emissao, num(o.validade_dias))) : 'Rascunho: o número sai quando você emitir'}</div></div></div>
   ${!ed ? `<div class="lock-note">${ic('lock')}<span>Orçamento ${ST_ORC[o.status][0].toLowerCase()}: não dá mais para editar. Para mudar algo, use <b>Duplicar</b>.</span></div>` : ''}
   ${o.status === 'enviado' ? `<div class="lock-note">${ic('alert')}<span>Já foi para o cliente. Se mudar algo, mande o PDF de novo.</span></div>` : ''}
+  <div style="margin-bottom:12px">${acoesOrc(o)}</div>
   ${s ? `<a class="card row" style="margin-bottom:12px" href="#/serv/${s.id}"><div class="main"><div class="t">Virou serviço</div><div class="m">${esc(s.descricao)}</div></div>${badgeServ(s)}${ic('right')}</a>` : ''}
 
   <div class="card">
@@ -971,7 +972,13 @@ function vOrc(r){
   </div>
 
   <div class="sec">Ações</div>
-  <div class="btns">
+  ${acoesOrc(o)}
+  <div id="totbar" class="totbar"></div>`;
+}
+// Os mesmos botões aparecem no topo e no fim da tela: orçamento comprido
+// obrigava a rolar até o fim só para marcar "Cliente aprovou" ou ver o PDF.
+function acoesOrc(o){
+  return `<div class="btns">
     <button class="btn btn-n" onclick="go('#/orc/${o.id}/pdf')">${ic('file')} Ver PDF</button>
     ${o.status === 'rascunho' ? `<button class="btn btn-p" onclick="emitirOrc('${o.id}')">${ic('send')} Emitir (gera o número)</button>` : ''}
     ${o.status === 'enviado' ? `<button class="btn btn-p" onclick="aprovarOrc('${o.id}')">${ic('check')} Cliente aprovou</button>
@@ -981,8 +988,7 @@ function vOrc(r){
     ${o.status === 'enviado' ? `<button class="btn btn-g" onclick="mudaStatusOrc('${o.id}','cancelado')">Cancelar</button>` : ''}
     ${o.status === 'recusado' || o.status === 'cancelado' ? `<button class="btn btn-g" onclick="mudaStatusOrc('${o.id}','enviado')">Reabrir</button>` : ''}
     ${o.status === 'aprovado' && !o.servico_id ? `<button class="btn btn-p" onclick="aprovarOrc('${o.id}')">${ic('wrench')} Criar o serviço de novo</button>` : ''}
-  </div>
-  <div id="totbar" class="totbar"></div>`;
+  </div>`;
 }
 vOrc.after = r => { const o = orc(r.id); if (!o) return; bindOrcInputs(o); pintaTotais(o.id);
   if (abrirItemAoEntrar === o.id && r.sub !== 'pdf') { abrirItemAoEntrar = null; modalItem(o.id); } };
