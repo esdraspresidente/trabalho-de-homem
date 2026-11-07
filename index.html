@@ -395,7 +395,7 @@ table.pdf-t .ds{color:#5A6169;font-size:12px;margin-top:2px;line-height:1.4}
   <button id="fab-voz" onclick="vozToggle()" aria-label="Lançar por voz"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
   <div id="voz-overlay" role="dialog" aria-label="Gravando comando de voz">
     <div id="voz-tempo">0:00</div>
-    <div id="voz-dica">Fale o gasto e toque no botão para enviar</div>
+    <div id="voz-dica">Fale e toque no botão para enviar<br><small style="font-weight:500;opacity:.8">gasto · orçamento aprovado · recebi · paguei prestador</small></div>
     <button id="voz-parar" onclick="vozParar(false)" aria-label="Parar e enviar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg></button>
     <button id="voz-cancelar" onclick="vozParar(true)">Cancelar</button>
   </div>
@@ -423,7 +423,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.5.0';
+const APP_VER = '1.6.0';
 
 /* ═══ Cliente Supabase ═══════════════════════════════════════════════
    Escrito à parte, e não copiado do Diligências, porque o de lá aceita
@@ -1243,9 +1243,10 @@ async function mudaStatusOrc(oid, st){
   const ok = await act(async () => { const [n] = await db.upd('tdh_orcamentos', eqId(oid), { status:st }); Object.assign(o, n); return true; });
   if (ok) rerender();
 }
-function aprovarOrc(oid){
+// pre: resposta do comando de voz (mostra o que foi ouvido acima do texto).
+function aprovarOrc(oid, pre){
   const o = orc(oid), t = totaisOrc(oid);
-  confirmar('Cliente aprovou', `Cria o serviço com valor de <b>${money(t.total)}</b>${num(o.entrada_valor) ? `, entrada de <b>${money(o.entrada_valor)}</b> e saldo de <b>${money(t.total - num(o.entrada_valor))}</b>` : ''}. Depois você marca os dias e os prestadores.`,
+  confirmar('Cliente aprovou', `${pre ? vozBanner(pre, 'Confira o orçamento e toque em Criar serviço.') + `<b>Orçamento ${esc(numOrc(o))}</b> · ${esc(o.cliente_nome || nomeC(cliente(o.cliente_id)))}<br><br>` : ''}Cria o serviço com valor de <b>${money(t.total)}</b>${num(o.entrada_valor) ? `, entrada de <b>${money(o.entrada_valor)}</b> e saldo de <b>${money(t.total - num(o.entrada_valor))}</b>` : ''}. Depois você marca os dias e os prestadores.`,
     'Criar serviço', async () => {
       const sid = await act(async () => {
         // Função no banco: serviço, entrada e saldo nascem juntos ou nada.
@@ -1825,17 +1826,21 @@ function gcalSync(sid){ if (!GCAL_FUNCTION) return; }
 
 // Recebimentos
 const FORMAS = ['PIX','Dinheiro','Cartão','Transferência','Boleto'];
-function modalReceb(sid, rid){
-  const x = rid ? S.receb.find(r => r.id === rid) : null;
-  openModal(x ? 'Editar lançamento' : 'Novo recebimento', `
+// pre: comando de voz. Já vem como recebido (data falada) e com o valor
+// falado — inclusive em lançamento previsto com valor diferente, quando o
+// cliente pagou outro valor; a sobra aparece em "lançar diferença".
+function modalReceb(sid, rid, pre){
+  const x = rid ? S.receb.find(r => r.id === rid) : null, pc = pre?.campos || {};
+  openModal(x ? 'Editar lançamento' : 'Novo recebimento', `${pre ? vozBanner(pre) : ''}
     <div class="f2"><div class="field"><label>Descrição</label><input class="in" id="rc-desc" value="${esc(x?.descricao || 'Pagamento')}"></div>
-      <div class="field"><label>Valor (R$)</label><input class="in num" id="rc-val" inputmode="numeric" data-money value="${x ? moneyIn(x.valor) : ''}"></div></div>
+      <div class="field"><label>Valor (R$)</label><input class="in num" id="rc-val" inputmode="numeric" data-money value="${moneyIn(pc.valor || x?.valor)}"></div></div>
     <div class="f2"><div class="field"><label>Previsão</label><input class="in" type="date" id="rc-prev" value="${x?.previsao || ''}"></div>
-      <div class="field"><label>Recebido em</label><input class="in" type="date" id="rc-rec" value="${x?.recebido_em || ''}"></div></div>
-    <div class="field"><label>Forma</label><div class="chips" id="rc-forma">${FORMAS.map(f => `<button class="chip ${x?.forma_pagamento === f ? 'on' : ''}" onclick="chipUnico(this)">${f}</button>`).join('')}</div></div>
-    <div class="field"><label>Caiu em</label>${segConta('rc-conta', x?.conta)}</div>
+      <div class="field"><label>Recebido em</label><input class="in" type="date" id="rc-rec" value="${(pre && pc.data) || x?.recebido_em || ''}"></div></div>
+    <div class="field"><label>Forma</label><div class="chips" id="rc-forma">${FORMAS.map(f => `<button class="chip ${(pc.forma || x?.forma_pagamento) === f ? 'on' : ''}" onclick="chipUnico(this)">${f}</button>`).join('')}</div></div>
+    <div class="field"><label>Caiu em</label>${segConta('rc-conta', pre ? pc.conta : x?.conta)}</div>
     <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarReceb('${sid}', ${x ? `'${x.id}'` : 'null'})">Salvar</button>
       ${x ? `<button class="btn btn-d" onclick="excluirReceb('${x.id}')">${ic('trash')}</button>` : ''}</div>`);
+  if (pre) vozMarcarVazios(['rc-val']);
 }
 function chipUnico(el){ const on = el.classList.contains('on'); el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('on')); if (!on) el.classList.add('on'); }
 const chipSel = id => $(id)?.querySelector('.chip.on')?.textContent || null;
@@ -1851,12 +1856,15 @@ async function salvarReceb(sid, rid){
     await load('transf'); return true; }, 'Salvo.');
   if (ok) { closeModal(); rerender(); }
 }
-function modalBaixa(rid){
-  const x = S.receb.find(r => r.id === rid);
-  openModal('Recebi', `<p style="margin:-4px 0 12px"><b>${esc(x.descricao)}</b> · <span class="money">${money(x.valor)}</span></p>
-    <div class="field"><label>Data</label><input class="in" type="date" id="bx-data" value="${hoje()}"></div>
-    <div class="field"><label>Forma</label><div class="chips" id="bx-forma">${FORMAS.map((f,k) => `<button class="chip ${k === 0 ? 'on' : ''}" onclick="chipUnico(this)">${f}</button>`).join('')}</div></div>
-    <div class="field"><label>Caiu em</label>${segConta('bx-conta', x.conta)}</div>
+// pre: comando de voz (data, forma e conta faladas). Mostra também de
+// qual obra é, porque pela voz a tela abre fora da página do serviço.
+function modalBaixa(rid, pre){
+  const x = S.receb.find(r => r.id === rid), pc = pre?.campos || {}, sv = pre ? serv(x.servico_id) : null;
+  const forma = pc.forma || FORMAS[0];
+  openModal('Recebi', `${pre ? vozBanner(pre) : ''}<p style="margin:-4px 0 12px"><b>${esc(x.descricao)}</b> · <span class="money">${money(x.valor)}</span>${sv ? `<br><span style="color:var(--text2);font-size:13.5px">${esc(sv.descricao)}${cliente(sv.cliente_id) ? ' · ' + esc(nomeC(cliente(sv.cliente_id))) : ''}</span>` : ''}</p>
+    <div class="field"><label>Data</label><input class="in" type="date" id="bx-data" value="${pc.data || hoje()}"></div>
+    <div class="field"><label>Forma</label><div class="chips" id="bx-forma">${FORMAS.map(f => `<button class="chip ${f === forma ? 'on' : ''}" onclick="chipUnico(this)">${f}</button>`).join('')}</div></div>
+    <div class="field"><label>Caiu em</label>${segConta('bx-conta', pre ? pc.conta : x.conta)}</div>
     <button class="btn btn-p btn-w" onclick="darBaixa('${rid}')">${ic('check')} Confirmar</button>`);
 }
 async function darBaixa(rid){
@@ -1905,13 +1913,14 @@ async function salvarVinc(sid, vid){
     await load('transf'); return true; }, 'Salvo.');
   if (ok) { closeModal(); rerender(); }
 }
-function pagarRepasse(vid){
-  const v = S.vinc.find(x => x.id === vid), p = prestador(v.prestador_id);
-  openModal('Paguei', `<p style="margin:-4px 0 12px"><b>${esc(p?.nome || '')}</b> · <span class="money">${money(v.valor_repasse)}</span></p>
+// pre: comando de voz (data e conta faladas), com a obra à vista.
+function pagarRepasse(vid, pre){
+  const v = S.vinc.find(x => x.id === vid), p = prestador(v.prestador_id), pc = pre?.campos || {}, sv = pre ? serv(v.servico_id) : null;
+  openModal('Paguei', `${pre ? vozBanner(pre) : ''}<p style="margin:-4px 0 12px"><b>${esc(p?.nome || '')}</b> · <span class="money">${money(v.valor_repasse)}</span>${sv ? `<br><span style="color:var(--text2);font-size:13.5px">${esc(sv.descricao)}${cliente(sv.cliente_id) ? ' · ' + esc(nomeC(cliente(sv.cliente_id))) : ''}</span>` : ''}</p>
     ${p?.pix ? `<div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div style="flex:1;min-width:0"><div class="lbl">PIX ${esc(p.pix_tipo || '')}</div>
       <div style="font-weight:700;overflow-wrap:anywhere">${esc(p.pix)}</div></div><button class="btn btn-sm btn-s" onclick="copiarPix('${p.id}')">${ic('copy')} Copiar</button></div>` : ''}
-    <div class="field"><label>Data</label><input class="in" type="date" id="pg-data" value="${hoje()}"></div>
-    <div class="field"><label>Saiu de</label>${segConta('pg-conta', v.conta)}</div>
+    <div class="field"><label>Data</label><input class="in" type="date" id="pg-data" value="${pc.data || hoje()}"></div>
+    <div class="field"><label>Saiu de</label>${segConta('pg-conta', pre ? pc.conta : v.conta)}</div>
     <button class="btn btn-p btn-w" onclick="confirmaRepasse('${vid}')">${ic('check')} Confirmar pagamento</button>`);
 }
 async function confirmaRepasse(vid){
@@ -2121,19 +2130,38 @@ async function vozEnviar(){
   } finally { _voz.ocupado = false; loading(false); }
 }
 
-function vozAplicar(j){
+// Cada ação abre a tela que já existe para ela. O id devolvido pela
+// function tem que existir no que o app carregou: se não existir (criado
+// em outro aparelho depois que o app abriu), recarrega antes de abrir.
+async function vozAplicar(j){
+  const c = j.campos || {};
   if (j.acao === 'novo_gasto') return modalGasto({ voz:j });
-  vozNaoEntendi(j.transcricao, j.duvidas);
+  const precisa = { orcamento_aprovado:['orcs', () => orc(c.orcamento_id)],
+    recebimento:['receb', () => c.receb_id ? S.receb.find(r => r.id === c.receb_id) : serv(c.servico_id)],
+    repasse_pago:['vinc', () => S.vinc.find(v => v.id === c.repasse_id)] }[j.acao];
+  if (!precisa) return vozNaoEntendi(j.transcricao, j.duvidas);
+  if (!precisa[1]()) { await act(() => load('orcs', 'servicos', 'receb', 'vinc')); }
+  if (!precisa[1]()) return vozNaoEntendi(j.transcricao, ['Achei, mas o app ainda não tem esse item. Puxe a tela para atualizar e fale de novo.']);
+  if (j.acao === 'orcamento_aprovado') return aprovarOrc(c.orcamento_id, j);
+  if (j.acao === 'repasse_pago') return pagarRepasse(c.repasse_id, j);
+  // Recebimento: valor igual ao previsto (ou não dito) → "Recebi" daquele
+  // lançamento. Valor diferente → edita o lançamento com o valor falado.
+  // Sem lançamento previsto → recebimento novo na obra.
+  if (c.receb_id) {
+    const x = S.receb.find(r => r.id === c.receb_id);
+    return (!c.valor || Math.abs(num(x.valor) - c.valor) < 0.005) ? modalBaixa(x.id, j) : modalReceb(x.servico_id, x.id, j);
+  }
+  return modalReceb(c.servico_id, null, j);
 }
 
 // Faixa no topo do formulário: o que foi ouvido + o que ficou em aberto.
 // Mostrar a frase ouvida é o que deixa perceber erro de transcrição
 // ("89,50" ouvido como "8.950").
-function vozBanner(j){
+function vozBanner(j, rodape){
   const d = (j.duvidas || []).map(x => `<li>${esc(x)}</li>`).join('');
   return `<div class="voz-banner"><div><b>Você disse:</b> “${esc(j.transcricao)}”</div>
     ${d ? `<ul>${d}</ul>` : ''}
-    <div style="margin-top:6px;font-weight:700">Confira e toque em Salvar.${d ? ' Campos em amarelo ficaram em branco.' : ''}</div></div>`;
+    <div style="margin-top:6px;font-weight:700">${rodape || 'Confira e confirme.' + (d ? ' Campos em amarelo ficaram em branco.' : '')}</div></div>`;
 }
 function vozMarcarVazios(ids){
   ids.forEach(id => {
@@ -2148,7 +2176,7 @@ function vozNaoEntendi(transcricao, duvidas){
   openModal('Não entendi o comando', `
     ${transcricao ? `<div style="font-size:14px;margin-bottom:10px"><b>Você disse:</b> “${esc(transcricao)}”</div>` : ''}
     ${d ? `<ul style="margin:0 0 12px 18px;padding:0;font-size:13px;color:var(--text2)">${d}</ul>` : ''}
-    <div class="hint" style="font-size:13px;color:var(--text3);margin-bottom:14px">Exemplos: “gastei 89,50 no Balaroti na obra da Setup” · “abasteci 120 reais pro chuveiro da Dona Maria, do meu bolso” · “custo fixo, 60 reais de anúncio no Instagram”.</div>
+    <div class="hint" style="font-size:13px;color:var(--text3);margin-bottom:14px">Exemplos: “gastei 89,50 no Balaroti na obra da Setup” · “a Setup aprovou o orçamento” · “recebi 300 da Setup no pix” · “paguei o João da obra da Setup” · “custo fixo, 60 reais de anúncio no Instagram”.</div>
     <div class="btns"><button class="btn btn-s" style="flex:1" onclick="closeModal();setTimeout(vozToggle,250)">Falar de novo</button>
       <button class="btn btn-p" style="flex:1" onclick="closeModal();modalGasto({})">Lançar à mão</button></div>`);
 }
