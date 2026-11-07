@@ -423,7 +423,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.7.0';
+const APP_VER = '1.7.1';
 
 /* ═══ Cliente Supabase ═══════════════════════════════════════════════
    Escrito à parte, e não copiado do Diligências, porque o de lá aceita
@@ -445,7 +445,13 @@ async function refreshSess(){
       body: JSON.stringify({ refresh_token: sess.refresh_token })
     });
     const d = await r.json().catch(() => ({}));
-    if (!r.ok) { saveSess(null); throw new Error('Sessão expirada. Entre de novo.'); }
+    // Só 400/401/403 é recusa de verdade (saiu da conta, senha trocada).
+    // Servidor ocupado (429/5xx) ou sem internet NÃO pode apagar o login:
+    // antes, abrir o app sem sinal derrubava a sessão e pedia senha.
+    if (!r.ok) {
+      if (r.status === 400 || r.status === 401 || r.status === 403) { saveSess(null); throw new Error('Sessão expirada. Entre de novo.'); }
+      throw new Error('Sem conexão com o servidor. Tente de novo.');
+    }
     if (!d.expires_at) d.expires_at = Math.floor(Date.now()/1000) + (d.expires_in || 3600);
     saveSess(d);
   })().finally(() => { refreshing = null; });
@@ -453,12 +459,14 @@ async function refreshSess(){
 }
 
 async function api(path, opt = {}, retry = true){
-  if (sess?.expires_at && sess.expires_at - 60 < Date.now()/1000) { try { await refreshSess(); } catch(e) { onSignedOut(); throw e; } }
+  // Falha na renovação só leva ao login se a sessão foi de fato recusada
+  // (refreshSess apaga sess nesse caso). Sem internet, só avisa o erro.
+  if (sess?.expires_at && sess.expires_at - 60 < Date.now()/1000) { try { await refreshSess(); } catch(e) { if (!sess) onSignedOut(); throw e; } }
   const h = { apikey:SB_KEY, 'Content-Type':'application/json', ...(opt.headers || {}) };
   h.Authorization = 'Bearer ' + (sess?.access_token || SB_KEY);
   const r = await fetch(SB_URL + path, { ...opt, headers:h });
   if (r.status === 401 && retry && sess?.refresh_token) {
-    try { await refreshSess(); } catch(e) { onSignedOut(); throw e; }
+    try { await refreshSess(); } catch(e) { if (!sess) onSignedOut(); throw e; }
     return api(path, opt, false);
   }
   const txt = await r.text();
