@@ -5,15 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0F2238">
 <title>Trabalho de Homem</title>
-<link rel="manifest" href="manifest.json?v=2">
+<link rel="manifest" href="manifest.json?v=3">
 <!-- iOS ignora parte do manifest: sem estas linhas o "Adicionar à Tela de
      Início" abre como aba do Safari, com barra, e não como app. -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Trab. de Homem">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="icon" href="favicon.png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<!-- Ícones com fundo azul e casinha amarela (cores invertidas em 07/11/2026):
+     o amarelo se confundia com a aba do Fullfin. O simbolo.svg do cabeçalho
+     e do PDF continua amarelo, porque o cabeçalho já é azul. -->
+<link rel="icon" href="favicon.png?v=2">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Barlow Condensed é a fonte da logo; Barlow (mesma família, largura
@@ -381,7 +384,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.2.0';
+const APP_VER = '1.3.0';
 
 /* ═══ Cliente Supabase ═══════════════════════════════════════════════
    Escrito à parte, e não copiado do Diligências, porque o de lá aceita
@@ -534,7 +537,7 @@ const ic = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hid
    Volume pequeno (um negócio, uma pessoa): carrega tudo no login e
    recarrega só a tabela que mudou. Evita consulta a cada tela. */
 const S = {
-  cfg:null, clientes:[], prestadores:[], orcs:[], itens:[], servicos:[], agendas:[], receb:[], vinc:[],
+  cfg:null, clientes:[], prestadores:[], orcs:[], itens:[], servicos:[], agendas:[], receb:[], vinc:[], gastos:[], transf:[],
   dil:[], blq:[], dilOk:true,
 };
 const TAB = {
@@ -542,6 +545,7 @@ const TAB = {
   orcs:['tdh_orcamentos','&order=created_at.desc'], itens:['tdh_orcamento_itens','&order=ordem.asc'],
   servicos:['tdh_servicos','&order=created_at.desc'], agendas:['tdh_agendas','&order=data.asc,horario_inicio.asc'],
   receb:['tdh_recebimentos','&order=created_at.asc'], vinc:['tdh_servico_prestadores','&order=created_at.asc'],
+  gastos:['tdh_gastos','&order=data.asc,created_at.asc'], transf:['tdh_transferencias','&order=data.asc,created_at.asc'],
 };
 async function load(...keys){
   await Promise.all(keys.map(async k => { S[k] = await db.sel(TAB[k][0], TAB[k][1]) || []; }));
@@ -578,6 +582,7 @@ const itensDe = oid => S.itens.filter(i => i.orcamento_id === oid).sort((a,b) =>
 const agendasDe = sid => S.agendas.filter(a => a.servico_id === sid).sort((a,b) => (a.data+(a.horario_inicio||'')).localeCompare(b.data+(b.horario_inicio||'')));
 const recebDe = sid => S.receb.filter(r => r.servico_id === sid);
 const vincDe = sid => S.vinc.filter(v => v.servico_id === sid);
+const gastosDe = sid => S.gastos.filter(g => g.servico_id === sid).sort((a,b) => a.data.localeCompare(b.data));
 // Dia que conta na agenda: o serviço existe e não foi cancelado.
 const agAtiva = a => { const s = serv(a.servico_id); return !!s && s.status !== 'cancelado'; };
 const servAtivo = sid => { const s = serv(sid); return !!s && s.status !== 'cancelado'; };
@@ -607,8 +612,14 @@ function totaisServ(sid){
   const repPago = vs.filter(v => v.repasse_status === 'pago').reduce((t,v) => t + num(v.valor_repasse), 0);
   const lancado = rs.reduce((t,r) => t + num(r.valor), 0);
   const recebido = rs.filter(r => r.recebido_em).reduce((t,r) => t + num(r.valor), 0);
-  const lucro = num(s?.valor_cobrado) - num(s?.custo_material) - repasse;
-  return { repasse, repPago, lancado, recebido, aReceber: lancado - recebido, lucro };
+  // Gasto real lançado substitui o material previsto. Enquanto não houver
+  // nenhum, vale a previsão: serviço recém-aprovado não pode aparecer com
+  // lucro de 100% só porque a compra ainda não foi feita.
+  const gs = gastosDe(sid), gastoReal = gs.reduce((t,g) => t + num(g.valor), 0), temGasto = gs.length > 0;
+  const previsto = num(s?.custo_material);
+  const lucroPrev = num(s?.valor_cobrado) - previsto - repasse;
+  const lucro = num(s?.valor_cobrado) - (temGasto ? gastoReal : previsto) - repasse;
+  return { repasse, repPago, lancado, recebido, aReceber: lancado - recebido, lucro, lucroPrev, previsto, gastoReal, temGasto };
 }
 const orcEditavel = o => o && (o.status === 'rascunho' || o.status === 'enviado');
 const orcVencido = o => o?.status === 'enviado' && o.emissao && addDias(o.emissao, num(o.validade_dias)) < hoje();
@@ -672,7 +683,7 @@ function onSignedOut(){
 const NAV = [
   ['painel','home','Painel'], ['retornos','phone','Retornos'], ['agenda','cal','Agenda'], ['orcamentos','file','Orçamentos'], ['servicos','wrench','Serviços'],
 ];
-const NAV2 = [['prestadores','users','Prestadores'], ['clientes','user','Clientes'], ['config','cfg','Configurações']];
+const NAV2 = [['financeiro','money','Financeiro'], ['prestadores','users','Prestadores'], ['clientes','user','Clientes'], ['config','cfg','Configurações']];
 function buildNav(){
   $('tabs').innerHTML = NAV.map(([k,i,t]) => `<a href="#/${k}" data-k="${k}">${ic(i)}<span>${t}</span></a>`).join('')
     + `<a href="#/mais" data-k="mais">${ic('more')}<span>Mais</span></a>`;
@@ -693,11 +704,11 @@ function render(){
   if ($('app').classList.contains('hidden')) return;
   const r = route();
   const sec = SECAO[r.page] || r.page;
-  const naMais = ['prestadores','clientes','config','mais','cliente'].includes(r.page);
+  const naMais = ['financeiro','prestadores','clientes','config','mais','cliente'].includes(r.page);
   document.querySelectorAll('#tabs a').forEach(a => a.classList.toggle('on', a.dataset.k === sec || (a.dataset.k === 'mais' && naMais)));
   document.querySelectorAll('#side a').forEach(a => a.classList.toggle('on', a.dataset.k === sec));
   const V = { painel:vPainel, retornos:vRetornos, agenda:vAgenda, orcamentos:vOrcamentos, orc:vOrc, servicos:vServicos, serv:vServ,
-    prestadores:vPrestadores, clientes:vClientes, cliente:vCliente, config:vConfig, mais:vMais };
+    prestadores:vPrestadores, clientes:vClientes, cliente:vCliente, config:vConfig, mais:vMais, financeiro:vFinanceiro };
   const fn = V[r.page] || vPainel;
   $('view').innerHTML = `<div class="wrap">${fn(r)}</div>`;
   if (fn.after) fn.after(r);
@@ -759,7 +770,9 @@ function vPainel(){
   <div class="btns" style="margin-top:12px">
     <button class="btn btn-p" style="flex:1" onclick="novoOrcamento()">${ic('plus')} Orçamento</button>
     <button class="btn btn-s" style="flex:1" onclick="modalNovoServico()">${ic('plus')} Serviço direto</button>
+    <button class="btn btn-s" style="flex:1" onclick="modalGasto({})">${ic('plus')} Gasto</button>
   </div>
+  ${totPendPF() ? `<a class="warn" style="margin-top:10px;text-decoration:none" href="#/financeiro">${ic('alert')}<span><b>${totPendPF()}</b> lançamento(s) passaram pela sua conta PF e falta acertar.</span></a>` : ''}
   <div class="sec">Próximos 7 dias <a class="lnk" href="#/agenda">Agenda</a></div>
   <div class="list">${linhas.length ? linhas.map(rowAgendaMista).join('') : '<div class="empty">Nada marcado nos próximos 7 dias.</div>'}</div>
   ${atras.length ? `<div class="sec">Recebimentos atrasados</div><div class="list">${atras.map(r => { const s = serv(r.servico_id);
@@ -992,7 +1005,7 @@ function itemHtml(it, n, ed){
     <div class="f2">
       <div class="field"><label>Tempo</label><input class="in num" data-i="tempo_estimado_min" data-kind="tempo" value="${esc(fmtTempo(it.tempo_estimado_min))}" ${dis} placeholder="1h30"></div>
       <div class="field"><label>Margem material %</label><input class="in num" inputmode="decimal" data-i="margem_material_pct" data-kind="pct" value="${esc(num(it.margem_material_pct))}" ${dis}></div>
-      <div class="field"><label>Material — custo (R$)</label><input class="in num money" inputmode="decimal" data-i="material_custo" data-kind="money" value="${moneyIn(it.material_custo)}" ${dis} placeholder="0,00"></div>
+      <div class="field"><label>Material previsto (R$)</label><input class="in num money" inputmode="decimal" data-i="material_custo" data-kind="money" value="${moneyIn(it.material_custo)}" ${dis} placeholder="0,00"></div>
       <div class="field"><label>Mão de obra (R$)</label><input class="in num money" inputmode="decimal" data-i="mao_obra" data-kind="money" value="${moneyIn(it.mao_obra)}" ${dis} placeholder="0,00"></div>
     </div>
     <div class="price-box"><span class="lbl" style="flex:1">Preço ao cliente</span>
@@ -1112,7 +1125,7 @@ function modalItem(oid, tipo = 'servico'){
     <div class="field"><label>Descrição para o cliente</label><textarea class="in" id="ni-desc" style="min-height:54px" placeholder="Fornecimento e instalação de…"></textarea></div>
     <div class="f2"><div class="field"><label>Tempo</label><input class="in num" id="ni-tempo" placeholder="1h30"></div>
       <div class="field"><label>Margem material %</label><input class="in num" id="ni-marg" inputmode="decimal" value="${m}"></div>
-      <div class="field"><label>Material — custo (R$)</label><input class="in num" id="ni-mat" inputmode="decimal" oninput="niPreview()"></div>
+      <div class="field"><label>Material previsto (R$)</label><input class="in num" id="ni-mat" inputmode="decimal" oninput="niPreview()"></div>
       <div class="field"><label>Mão de obra (R$)</label><input class="in num" id="ni-mo" inputmode="decimal" oninput="niPreview()"></div></div>
     <div class="price-box" style="margin-bottom:14px"><span class="lbl" style="flex:1">Preço ao cliente (sugerido)</span><b class="cond money" id="ni-prev" style="font-size:22px">R$ 0,00</b></div>
     <button class="btn btn-p btn-w" onclick="criarItem('${oid}','servico')">Adicionar</button>`);
@@ -1553,7 +1566,7 @@ function modalNovoServico(data){
     <div class="field"><label>Endereço</label><input class="in" id="ns-end"></div>
     <div class="f2"><div class="field"><label>Bairro</label><input class="in" id="ns-bai"></div><div class="field"><label>Cidade</label><input class="in" id="ns-cid"></div></div>
     <div class="f2"><div class="field"><label>Valor cobrado (R$)</label><input class="in num" id="ns-val" inputmode="decimal"></div>
-      <div class="field"><label>Material — custo (R$)</label><input class="in num" id="ns-mat" inputmode="decimal"></div></div>
+      <div class="field"><label>Material previsto (R$)</label><input class="in num" id="ns-mat" inputmode="decimal"></div></div>
     <div class="f3"><div class="field"><label>Data</label><input class="in" type="date" id="ns-data" value="${data || ''}"></div>
       <div class="field"><label>Início</label><input class="in" type="time" id="ns-ini"></div><div class="field"><label>Fim</label><input class="in" type="time" id="ns-fim"></div></div>
     <div id="ns-warn"></div>
@@ -1594,7 +1607,7 @@ function vServ(r){
   const s = serv(r.id);
   if (!s) return `<a class="back" href="#/servicos">${ic('left')} Serviços</a><div class="card empty">Serviço não encontrado.</div>`;
   const c = cliente(s.cliente_id), o = s.orcamento_id ? orc(s.orcamento_id) : null, t = totaisServ(s.id);
-  const ag = agendasDe(s.id), rs = recebDe(s.id), vs = vincDe(s.id);
+  const ag = agendasDe(s.id), rs = recebDe(s.id), vs = vincDe(s.id), gs = gastosDe(s.id);
   const end = [s.endereco, s.bairro, s.cidade].filter(Boolean).join(', ');
   const wa = c?.whatsapp ? waLink(c.whatsapp) : null;
   const internosOrc = o ? itensDe(o.id).filter(i => i.tipo === 'custo_interno' && num(i.mao_obra) > 0) : [];
@@ -1622,7 +1635,7 @@ function vServ(r){
   <div class="sec">Recebimentos do cliente <button class="lnk" onclick="modalReceb('${s.id}')">+ Lançar</button></div>
   <div class="list">${rs.length ? rs.map(x => `<div class="row" style="cursor:default"><div class="main" onclick="modalReceb('${s.id}','${x.id}')" style="cursor:pointer">
       <div class="t">${esc(x.descricao)} · <span class="money">${money(x.valor)}</span></div>
-      <div class="m">${x.recebido_em ? `<span style="color:var(--green);font-weight:700">Recebido ${fmtData(x.recebido_em)}</span>${x.forma_pagamento ? ' · ' + esc(x.forma_pagamento) : ''}` : (x.previsao ? `Previsto ${fmtData(x.previsao)}${x.previsao < hoje() ? ' · <b style="color:var(--red)">atrasado</b>' : ''}` : 'Sem previsão')}</div></div>
+      <div class="m">${x.recebido_em ? `<span style="color:var(--green);font-weight:700">Recebido ${fmtData(x.recebido_em)}</span>${x.forma_pagamento ? ' · ' + esc(x.forma_pagamento) : ''}${pfInfo('receb', x)}` : (x.previsao ? `Previsto ${fmtData(x.previsao)}${x.previsao < hoje() ? ' · <b style="color:var(--red)">atrasado</b>' : ''}` : 'Sem previsão')}</div></div>
       ${x.recebido_em ? `<span class="badge b-green">${ic('check')}</span>` : `<button class="btn btn-sm btn-p" onclick="modalBaixa('${x.id}')">Recebi</button>`}</div>`).join('')
     : '<div class="empty">Nada lançado.</div>'}</div>
   ${Math.abs(t.lancado - num(s.valor_cobrado)) > 0.005 ? `<div class="warn" style="margin-top:8px">${ic('alert')}<span>Lançado <b class="money">${money(t.lancado)}</b>, mas o serviço vale <b class="money">${money(s.valor_cobrado)}</b>. ${t.lancado < num(s.valor_cobrado) ? `<button class="lnk" style="border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer;padding:0" onclick="lancarDiferenca('${s.id}')">Lançar a diferença</button>` : ''}</span></div>` : ''}
@@ -1631,16 +1644,23 @@ function vServ(r){
   <div class="list">${vs.length ? vs.map(v => { const p = prestador(v.prestador_id);
     return `<div class="row" style="cursor:default"><div class="main" onclick="modalVinc('${s.id}','${v.id}')" style="cursor:pointer">
       <div class="t">${p ? esc(p.nome) : '<span style="color:var(--red)">A definir</span>'}${v.funcao ? ' · ' + esc(v.funcao) : ''}</div>
-      <div class="m"><span class="money">${money(v.valor_repasse)}</span> · ${v.repasse_status === 'pago' ? `<span style="color:var(--green);font-weight:700">pago ${fmtData(v.repassado_em)}</span>` : 'a pagar'}</div></div>
+      <div class="m"><span class="money">${money(v.valor_repasse)}</span> · ${v.repasse_status === 'pago' ? `<span style="color:var(--green);font-weight:700">pago ${fmtData(v.repassado_em)}</span>${pfInfo('repasse', v)}` : 'a pagar'}</div></div>
       ${v.repasse_status === 'pago' ? `<span class="badge b-green">${ic('check')}</span>` : (p ? `<button class="btn btn-sm btn-p" onclick="pagarRepasse('${v.id}')">Paguei</button>` : '')}</div>`; }).join('')
     : `<div class="empty">Você mesmo faz. Se for terceirizar, adicione o prestador.${internosOrc.length ? `<br><button class="lnk" style="border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer;margin-top:6px" onclick="trazerInternos('${s.id}')">Trazer os ${internosOrc.length} custo(s) interno(s) do orçamento</button>` : ''}</div>`}</div>
+
+  <div class="sec">Gastos da obra <button class="lnk" onclick="modalGasto({ sid:'${s.id}' })">+ Gasto</button></div>
+  <div class="list">${gs.length ? gs.map(rowGasto).join('')
+    : `<div class="empty">Nenhum gasto lançado. Enquanto não lançar, o lucro usa o material previsto (<span class="money">${money(t.previsto)}</span>).</div>`}</div>
 
   <div class="sec">Resumo</div>
   <div class="card"><table class="sumtab">
     <tr><td>Cobrado do cliente</td><td class="money">${money(s.valor_cobrado)}</td></tr>
-    <tr><td>Material</td><td class="neg money">− ${money(s.custo_material)}</td></tr>
+    ${t.temGasto
+      ? `<tr><td>Gastos da obra</td><td class="neg money">− ${money(t.gastoReal)}</td></tr>`
+      : `<tr><td>Material previsto</td><td class="neg money">− ${money(t.previsto)}</td></tr>`}
     <tr><td>Repasses</td><td class="neg money">− ${money(t.repasse)}</td></tr>
-    <tr class="tot"><td>Seu lucro</td><td class="money" style="color:${t.lucro < 0 ? 'var(--red)' : 'var(--green)'}">${money(t.lucro)}</td></tr>
+    <tr class="tot"><td>${t.temGasto ? 'Seu lucro real' : 'Seu lucro previsto'}</td><td class="money" style="color:${t.lucro < 0 ? 'var(--red)' : 'var(--green)'}">${money(t.lucro)}</td></tr>
+    ${t.temGasto ? `<tr><td style="color:var(--text3)">Previsto no orçamento</td><td class="money" style="color:var(--text3)">${money(t.lucroPrev)} <small>(${t.lucro - t.lucroPrev >= 0 ? '+' : '−'} ${money(Math.abs(t.lucro - t.lucroPrev))})</small></td></tr>` : ''}
     <tr><td style="color:var(--text3)">Já recebido</td><td class="money" style="color:var(--text3)">${money(t.recebido)}</td></tr>
     <tr><td style="color:var(--text3)">Falta receber</td><td class="money" style="color:var(--text3)">${money(t.aReceber)}</td></tr>
   </table></div>
@@ -1664,7 +1684,7 @@ function modalEditServ(sid){
     <div class="f2"><div class="field"><label>Bairro</label><input class="in" id="es-bai" value="${esc(s.bairro || '')}"></div>
       <div class="field"><label>Cidade</label><input class="in" id="es-cid" value="${esc(s.cidade || '')}"></div></div>
     <div class="f2"><div class="field"><label>Valor cobrado (R$)</label><input class="in num" id="es-val" inputmode="decimal" value="${moneyIn(s.valor_cobrado)}"></div>
-      <div class="field"><label>Material — custo (R$)</label><input class="in num" id="es-mat" inputmode="decimal" value="${moneyIn(s.custo_material)}"></div></div>
+      <div class="field"><label>Material previsto (R$)</label><input class="in num" id="es-mat" inputmode="decimal" value="${moneyIn(s.custo_material)}"></div></div>
     <div class="field"><label>Observações</label><textarea class="in" id="es-obs">${esc(s.observacoes || '')}</textarea></div>
     <button class="btn btn-p btn-w" onclick="salvarServ('${sid}')">Salvar</button>`);
 }
@@ -1676,8 +1696,8 @@ async function salvarServ(sid){
   if (ok) { closeModal(); rerender(); }
 }
 function excluirServ(sid){
-  confirmar('Excluir serviço', 'Apaga o serviço, os dias, os recebimentos e os repasses dele, e libera os bloqueios no Diligências. Se só não vai mais acontecer, prefira <b>Cancelado</b>: o histórico fica.', 'Excluir de vez', async () => {
-    const ok = await act(async () => { await db.del('tdh_servicos', eqId(sid)); await load('servicos','agendas','receb','vinc','orcs'); return true; });
+  confirmar('Excluir serviço', 'Apaga o serviço, os dias, os recebimentos, os repasses e os gastos dele, e libera os bloqueios no Diligências. Se só não vai mais acontecer, prefira <b>Cancelado</b>: o histórico fica.', 'Excluir de vez', async () => {
+    const ok = await act(async () => { await db.del('tdh_servicos', eqId(sid)); await load('servicos','agendas','receb','vinc','orcs','gastos','transf'); return true; });
     if (ok) go('#/servicos');
   }, true);
 }
@@ -1737,6 +1757,7 @@ function modalReceb(sid, rid){
     <div class="f2"><div class="field"><label>Previsão</label><input class="in" type="date" id="rc-prev" value="${x?.previsao || ''}"></div>
       <div class="field"><label>Recebido em</label><input class="in" type="date" id="rc-rec" value="${x?.recebido_em || ''}"></div></div>
     <div class="field"><label>Forma</label><div class="chips" id="rc-forma">${FORMAS.map(f => `<button class="chip ${x?.forma_pagamento === f ? 'on' : ''}" onclick="chipUnico(this)">${f}</button>`).join('')}</div></div>
+    <div class="field"><label>Caiu em</label>${segConta('rc-conta', x?.conta)}</div>
     <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarReceb('${sid}', ${x ? `'${x.id}'` : 'null'})">Salvar</button>
       ${x ? `<button class="btn btn-d" onclick="excluirReceb('${x.id}')">${ic('trash')}</button>` : ''}</div>`);
 }
@@ -1744,11 +1765,14 @@ function chipUnico(el){ const on = el.classList.contains('on'); el.parentElement
 const chipSel = id => $(id)?.querySelector('.chip.on')?.textContent || null;
 async function salvarReceb(sid, rid){
   const v = parseMoney(fv('rc-val')); if (!v) return toast('Coloque o valor.', true);
-  const row = { descricao:fv('rc-desc').trim() || 'Pagamento', valor:v, previsao:fv('rc-prev') || null, recebido_em:fv('rc-rec') || null, forma_pagamento:chipSel('rc-forma') };
+  const row = { descricao:fv('rc-desc').trim() || 'Pagamento', valor:v, previsao:fv('rc-prev') || null, recebido_em:fv('rc-rec') || null, forma_pagamento:chipSel('rc-forma'),
+    ...contaPatch(segVal('rc-conta')) };
+  // Recebimento que voltou a "não recebido" não tem o que acertar.
+  if (!row.recebido_em) Object.assign(row, { acerto:null, acerto_em:null });
   const ok = await act(async () => {
     if (rid) { const [n] = await db.upd('tdh_recebimentos', eqId(rid), row); Object.assign(S.receb.find(r => r.id === rid), n); }
     else S.receb.push(...await db.ins('tdh_recebimentos', { ...row, servico_id:sid }));
-    return true; }, 'Salvo.');
+    await load('transf'); return true; }, 'Salvo.');
   if (ok) { closeModal(); rerender(); }
 }
 function modalBaixa(rid){
@@ -1756,16 +1780,20 @@ function modalBaixa(rid){
   openModal('Recebi', `<p style="margin:-4px 0 12px"><b>${esc(x.descricao)}</b> · <span class="money">${money(x.valor)}</span></p>
     <div class="field"><label>Data</label><input class="in" type="date" id="bx-data" value="${hoje()}"></div>
     <div class="field"><label>Forma</label><div class="chips" id="bx-forma">${FORMAS.map((f,k) => `<button class="chip ${k === 0 ? 'on' : ''}" onclick="chipUnico(this)">${f}</button>`).join('')}</div></div>
+    <div class="field"><label>Caiu em</label>${segConta('bx-conta', x.conta)}</div>
     <button class="btn btn-p btn-w" onclick="darBaixa('${rid}')">${ic('check')} Confirmar</button>`);
 }
 async function darBaixa(rid){
   const x = S.receb.find(r => r.id === rid), d = fv('bx-data'); if (!d) return toast('Escolha a data.', true);
-  const ok = await act(async () => { const [n] = await db.upd('tdh_recebimentos', eqId(rid), { recebido_em:d, forma_pagamento:chipSel('bx-forma') }); Object.assign(x, n); return true; }, 'Recebimento lançado.');
-  if (ok) { closeModal(); rerender(); }
+  const ok = await act(async () => { const [n] = await db.upd('tdh_recebimentos', eqId(rid), { recebido_em:d, forma_pagamento:chipSel('bx-forma'), ...contaPatch(segVal('bx-conta')) }); Object.assign(x, n); return true; }, 'Recebimento lançado.');
+  if (!ok) return;
+  // Caiu na PF: já pergunta o acerto. Pode deixar para depois; fica na
+  // lista "Acertar com a PF" do Financeiro.
+  if (x.conta === 'pf') modalAcerto('receb', rid); else { closeModal(); rerender(); }
 }
 function excluirReceb(rid){ closeModal();
   confirmar('Excluir lançamento', 'Apagar este recebimento?', 'Excluir', async () => {
-    const ok = await act(async () => { await db.del('tdh_recebimentos', eqId(rid)); S.receb = S.receb.filter(r => r.id !== rid); return true; });
+    const ok = await act(async () => { await db.del('tdh_recebimentos', eqId(rid)); S.receb = S.receb.filter(r => r.id !== rid); await load('transf'); return true; });
     if (ok) rerender(); }, true); }
 async function lancarDiferenca(sid){
   const s = serv(sid), t = totaisServ(sid), v = Math.round((num(s.valor_cobrado) - t.lancado)*100)/100;
@@ -1796,7 +1824,7 @@ async function salvarVinc(sid, vid){
   const ok = await act(async () => {
     if (vid) { const [n] = await db.upd('tdh_servico_prestadores', eqId(vid), row); Object.assign(S.vinc.find(x => x.id === vid), n); }
     else S.vinc.push(...await db.ins('tdh_servico_prestadores', { ...row, servico_id:sid }));
-    return true; }, 'Salvo.');
+    await load('transf'); return true; }, 'Salvo.');
   if (ok) { closeModal(); rerender(); }
 }
 function pagarRepasse(vid){
@@ -1805,21 +1833,23 @@ function pagarRepasse(vid){
     ${p?.pix ? `<div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div style="flex:1;min-width:0"><div class="lbl">PIX ${esc(p.pix_tipo || '')}</div>
       <div style="font-weight:700;overflow-wrap:anywhere">${esc(p.pix)}</div></div><button class="btn btn-sm btn-s" onclick="copiarPix('${p.id}')">${ic('copy')} Copiar</button></div>` : ''}
     <div class="field"><label>Data</label><input class="in" type="date" id="pg-data" value="${hoje()}"></div>
+    <div class="field"><label>Saiu de</label>${segConta('pg-conta', v.conta)}</div>
     <button class="btn btn-p btn-w" onclick="confirmaRepasse('${vid}')">${ic('check')} Confirmar pagamento</button>`);
 }
 async function confirmaRepasse(vid){
   const v = S.vinc.find(x => x.id === vid), d = fv('pg-data'); if (!d) return toast('Escolha a data.', true);
-  const ok = await act(async () => { const [n] = await db.upd('tdh_servico_prestadores', eqId(vid), { repasse_status:'pago', repassado_em:d }); Object.assign(v, n); return true; }, 'Repasse lançado.');
-  if (ok) { closeModal(); rerender(); }
+  const ok = await act(async () => { const [n] = await db.upd('tdh_servico_prestadores', eqId(vid), { repasse_status:'pago', repassado_em:d, ...contaPatch(segVal('pg-conta')) }); Object.assign(v, n); return true; }, 'Repasse lançado.');
+  if (!ok) return;
+  if (v.conta === 'pf') modalAcerto('repasse', vid); else { closeModal(); rerender(); }
 }
 async function desfazerRepasse(vid){
   const v = S.vinc.find(x => x.id === vid);
-  const ok = await act(async () => { const [n] = await db.upd('tdh_servico_prestadores', eqId(vid), { repasse_status:'pendente', repassado_em:null }); Object.assign(v, n); return true; });
+  const ok = await act(async () => { const [n] = await db.upd('tdh_servico_prestadores', eqId(vid), { repasse_status:'pendente', repassado_em:null, ...contaPatch('pj') }); Object.assign(v, n); await load('transf'); return true; });
   if (ok) { closeModal(); rerender(); }
 }
 function excluirVinc(vid){ closeModal();
   confirmar('Tirar prestador', 'Tirar este prestador do serviço?', 'Tirar', async () => {
-    const ok = await act(async () => { await db.del('tdh_servico_prestadores', eqId(vid)); S.vinc = S.vinc.filter(v => v.id !== vid); return true; });
+    const ok = await act(async () => { await db.del('tdh_servico_prestadores', eqId(vid)); S.vinc = S.vinc.filter(v => v.id !== vid); await load('transf'); return true; });
     if (ok) rerender(); }, true); }
 // Ajudantes previstos como custo interno no orçamento viram repasses "a
 // definir", para você só escolher a pessoa.
@@ -1831,6 +1861,256 @@ async function trazerInternos(sid){
 // Pelo id, e não com a chave no onclick: chave com aspas quebraria o HTML.
 function copiarPix(pid){ const p = prestador(pid); if (p?.pix) copiar(p.pix); }
 async function copiar(t){ try { await navigator.clipboard.writeText(t); toast('Copiado.'); } catch(e) { toast('Não consegui copiar.', true); } }
+
+/* ═══════════════════════════════════════════════════════════════════
+   FINANCEIRO — gastos reais, conta PJ/PF, acerto e transferências
+   ═══════════════════════════════════════════════════════════════════
+   Regras (estrutura em previmater-ops/_sql/tdh_03_financeiro.sql):
+   * Gasto com obra = custo da obra. Gasto sem obra = custo fixo do mês.
+     Tudo numa tabela só, para não ter duas telas e duas regras.
+   * Todo dinheiro diz onde caiu ou de onde saiu (PJ ou PF). A conta
+     deveria ser só PJ, mas às vezes não é; sem isso o saldo não fecha.
+   * Dinheiro que passou pela PF é acertado caso a caso, à mão (decisão
+     do Esdras). Enquanto não acerta, fica em "Acertar com a PF".
+   * Quem cria e apaga a transferência de um acerto é o banco (trigger),
+     então o app só grava o acerto e recarrega S.transf. */
+const CAT_GASTO = { material:'Material', combustivel:'Combustível', alimentacao:'Alimentação', ferramenta:'Ferramenta',
+  anuncio:'Anúncio', imposto:'Imposto', taxa:'Taxa', outro:'Outro' };
+const ACERTO_TXT = { retirada:'ficou comigo', devolvido:'devolvi à PJ', reembolsado:'PJ me reembolsou', aporte:'aporte meu' };
+
+const segConta = (id, v) => `<div class="seg" id="${id}">${[['pj','Conta PJ'],['pf','Minha conta (PF)']]
+  .map(([k,t]) => `<button type="button" data-v="${k}" class="${(v || 'pj') === k ? 'on' : ''}" onclick="segPick(this)">${t}</button>`).join('')}</div>`;
+function segPick(el){ el.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === el)); }
+const segVal = id => $(id)?.querySelector('button.on')?.dataset.v || 'pj';
+// Voltar para PJ apaga o acerto: o banco não aceita acerto em dinheiro
+// da PJ, e a transferência que ele tinha gerado some junto (trigger).
+const contaPatch = c => c === 'pj' ? { conta:'pj', acerto:null, acerto_em:null } : { conta:'pf' };
+
+// O que ainda precisa de acerto. Recebimento só depois de recebido, e
+// repasse só depois de pago: antes disso o dinheiro não andou.
+const pendPF = {
+  receb:   () => S.receb.filter(r => r.conta === 'pf' && r.recebido_em && !r.acerto && servExiste(r.servico_id)),
+  gasto:   () => S.gastos.filter(g => g.conta === 'pf' && !g.acerto),
+  repasse: () => S.vinc.filter(v => v.conta === 'pf' && v.repasse_status === 'pago' && !v.acerto),
+};
+const servExiste = sid => !!serv(sid);
+const totPendPF = () => pendPF.receb().length + pendPF.gasto().length + pendPF.repasse().length;
+function pfInfo(kind, x){
+  if (x.conta !== 'pf') return '';
+  if (x.acerto) return ` · <span class="badge b-gray">PF · ${ACERTO_TXT[x.acerto]}</span>`;
+  return ` · <button class="badge b-yel" style="border:0;cursor:pointer" onclick="event.stopPropagation();modalAcerto('${kind}','${x.id}')">PF · acertar</button>`;
+}
+
+// ── Gastos ─────────────────────────────────────────────────────────
+function rowGasto(g){
+  const s = g.servico_id ? serv(g.servico_id) : null;
+  return `<div class="row" onclick="modalGasto({ gid:'${g.id}' })"><div class="main">
+    <div class="t">${CAT_GASTO[g.categoria] || g.categoria}${g.descricao ? ' · ' + esc(g.descricao) : ''}</div>
+    <div class="m">${fmtData(g.data)}${s && route().page !== 'serv' ? ' · ' + esc(s.descricao) : ''}${pfInfo('gasto', g)}</div></div>
+    <div class="r val">${m$(g.valor)}</div></div>`;
+}
+// op: { sid } abre já ligado à obra; { fixo:true } abre como custo fixo;
+// {} (atalho do Painel) pergunta a obra; { gid } edita.
+function modalGasto(op = {}){
+  const g = op.gid ? S.gastos.find(x => x.id === op.gid) : null;
+  const sid = g ? g.servico_id : op.sid;
+  const obras = S.servicos.filter(s => s.status === 'a_agendar' || s.status === 'agendado' || s.id === sid
+    || (s.status === 'executado' && agendasDe(s.id).some(a => a.data >= addDias(hoje(), -30))));
+  const escolheObra = !op.sid || g;
+  openModal(g ? 'Editar gasto' : (op.fixo ? 'Custo fixo' : 'Novo gasto'), `
+    <div class="f2"><div class="field"><label>Valor (R$)</label><input class="in num" id="gs-val" inputmode="decimal" value="${g ? moneyIn(g.valor) : ''}"></div>
+      <div class="field"><label>Data</label><input class="in" type="date" id="gs-data" value="${g?.data || hoje()}"></div></div>
+    <div class="field"><label>Categoria</label><div class="chips" id="gs-cat">${Object.entries(CAT_GASTO).map(([k,t]) =>
+      `<button class="chip ${(g?.categoria || (op.fixo ? '' : 'material')) === k ? 'on' : ''}" data-v="${k}" onclick="chipUnico(this)">${t}</button>`).join('')}</div></div>
+    <div class="field"><label>Descrição</label><input class="in" id="gs-desc" value="${esc(g?.descricao || '')}" placeholder="Ex.: nota da Leroy, disjuntores"></div>
+    ${escolheObra ? `<div class="field"><label>Obra</label><select class="in" id="gs-obra">
+      <option value="">— custo fixo (sem obra) —</option>${obras.map(s => `<option value="${s.id}" ${s.id === sid ? 'selected' : ''}>${esc(s.descricao)}${cliente(s.cliente_id) ? ' · ' + esc(nomeC(cliente(s.cliente_id))) : ''}</option>`).join('')}
+      </select>${op.fixo ? '' : '<div class="hint">Sem obra conta como custo fixo do mês (anúncio, DAS, ferramenta).</div>'}</div>` : ''}
+    <div class="field"><label>Saiu de</label>${segConta('gs-conta', g?.conta)}</div>
+    ${g?.acerto ? `<div class="hint" style="margin:-6px 0 12px">Acerto: ${ACERTO_TXT[g.acerto]} em ${fmtData(g.acerto_em)}. <button class="lnk" style="border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer;padding:0" onclick="modalAcerto('gasto','${g.id}')">Mudar</button></div>` : ''}
+    <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarGasto(${g ? `'${g.id}'` : 'null'}, ${!escolheObra ? `'${sid}'` : 'null'})">Salvar</button>
+      ${g ? `<button class="btn btn-d" onclick="excluirGasto('${g.id}')">${ic('trash')}</button>` : ''}</div>`);
+  setTimeout(() => $('gs-val')?.focus(), 50);
+}
+async function salvarGasto(gid, sidPreso){
+  const v = parseMoney(fv('gs-val')); if (!v) return toast('Coloque o valor.', true);
+  const cat = $('gs-cat').querySelector('.chip.on')?.dataset.v; if (!cat) return toast('Escolha a categoria.', true);
+  const data = fv('gs-data'); if (!data) return toast('Escolha a data.', true);
+  const row = { valor:v, data, categoria:cat, descricao:fv('gs-desc').trim() || null,
+    servico_id: sidPreso || ($('gs-obra') ? fv('gs-obra') || null : null), ...contaPatch(segVal('gs-conta')) };
+  let novo = null;
+  const ok = await act(async () => {
+    if (gid) { const [n] = await db.upd('tdh_gastos', eqId(gid), row); Object.assign(S.gastos.find(x => x.id === gid), n); }
+    else { [novo] = await db.ins('tdh_gastos', row); S.gastos.push(novo); }
+    await load('transf'); return true; }, 'Gasto lançado.');
+  if (!ok) return;
+  if (novo?.conta === 'pf') modalAcerto('gasto', novo.id); else { closeModal(); rerender(); }
+}
+function excluirGasto(gid){ closeModal();
+  confirmar('Excluir gasto', 'Apagar este gasto?', 'Excluir', async () => {
+    const ok = await act(async () => { await db.del('tdh_gastos', eqId(gid)); S.gastos = S.gastos.filter(g => g.id !== gid); await load('transf'); return true; });
+    if (ok) rerender(); }, true); }
+
+// ── Acerto com a PF ────────────────────────────────────────────────
+const ACERTO = {
+  receb:   { tab:'tdh_recebimentos', lista:() => S.receb, valor:x => x.valor, desc:x => `${esc(x.descricao)} · ${esc(serv(x.servico_id)?.descricao || '')}`,
+             pergunta:'Caiu na sua conta. O que você fez com ele?', ops:[['retirada','Ficou comigo','Conta como lucro que você já retirou.'], ['devolvido','Passei para a PJ','Gera a transferência para a empresa.']] },
+  gasto:   { tab:'tdh_gastos', lista:() => S.gastos, valor:x => x.valor, desc:x => `${CAT_GASTO[x.categoria]}${x.descricao ? ' · ' + esc(x.descricao) : ''}`,
+             pergunta:'Saiu do seu bolso. Como fica?', ops:[['reembolsado','A PJ me reembolsou','Gera a transferência para você.'], ['aporte','Fica como aporte meu','Dinheiro que você pôs na empresa.']] },
+  repasse: { tab:'tdh_servico_prestadores', lista:() => S.vinc, valor:x => x.valor_repasse, desc:x => `Repasse · ${esc(prestador(x.prestador_id)?.nome || '')} · ${esc(serv(x.servico_id)?.descricao || '')}`,
+             pergunta:'Saiu do seu bolso. Como fica?', ops:[['reembolsado','A PJ me reembolsou','Gera a transferência para você.'], ['aporte','Fica como aporte meu','Dinheiro que você pôs na empresa.']] },
+};
+function modalAcerto(kind, id){
+  const A = ACERTO[kind], x = A.lista().find(r => r.id === id); if (!x) return;
+  openModal('Acertar com a PF', `<p style="margin:-4px 0 4px"><b>${A.desc(x)}</b> · <span class="money">${money(A.valor(x))}</span></p>
+    <p style="margin:0 0 12px;color:var(--text3);font-size:13.5px">${A.pergunta}</p>
+    <div class="field"><div class="seg" id="ac-op">${A.ops.map(([k,t]) => `<button type="button" data-v="${k}" class="${x.acerto === k ? 'on' : ''}" onclick="segPick(this);$('ac-hint').textContent=this.dataset.h" data-h="${esc(A.ops.find(o => o[0] === k)[2])}">${t}</button>`).join('')}</div>
+      <div class="hint" id="ac-hint">${x.acerto ? esc(A.ops.find(o => o[0] === x.acerto)?.[2] || '') : ''}</div></div>
+    <div class="field"><label>Data</label><input class="in" type="date" id="ac-data" value="${x.acerto_em || hoje()}"></div>
+    <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarAcerto('${kind}','${id}')">${ic('check')} Salvar</button>
+      <button class="btn btn-s" onclick="${x.acerto ? `salvarAcerto('${kind}','${id}',true)` : 'closeModal();rerender()'}">${x.acerto ? 'Desfazer' : 'Depois'}</button></div>`);
+}
+async function salvarAcerto(kind, id, desfazer){
+  const A = ACERTO[kind], x = A.lista().find(r => r.id === id);
+  const op = $('ac-op').querySelector('button.on')?.dataset.v, d = fv('ac-data');
+  if (!desfazer && !op) return toast('Escolha uma opção.', true);
+  if (!desfazer && !d) return toast('Escolha a data.', true);
+  const ok = await act(async () => {
+    const [n] = await db.upd(A.tab, eqId(id), desfazer ? { acerto:null, acerto_em:null } : { acerto:op, acerto_em:d });
+    Object.assign(x, n); await load('transf'); return true; }, desfazer ? 'Acerto desfeito.' : 'Acertado.');
+  if (ok) { closeModal(); rerender(); }
+}
+
+// ── Transferências ─────────────────────────────────────────────────
+const transfOrigem = t => t.recebimento_id ? ['receb', t.recebimento_id] : t.gasto_id ? ['gasto', t.gasto_id] : t.repasse_id ? ['repasse', t.repasse_id] : null;
+function rowTransf(t){
+  const o = transfOrigem(t);
+  return `<div class="row" onclick="${o ? `modalAcerto('${o[0]}','${o[1]}')` : `modalTransf('${t.id}')`}"><div class="main">
+    <div class="t">${t.sentido === 'para_voce' ? 'PJ → você' : 'Você → PJ'}${t.descricao ? ' · ' + esc(t.descricao) : ''}</div>
+    <div class="m">${fmtData(t.data)}${o ? ' · veio de um acerto' : ''}</div></div>
+    <div class="r val" style="color:${t.sentido === 'para_voce' ? 'var(--text)' : 'var(--text3)'}">${m$(t.valor)}</div></div>`;
+}
+function modalTransf(tid){
+  const t = tid ? S.transf.find(x => x.id === tid) : null;
+  openModal(t ? 'Editar transferência' : 'Transferência', `
+    <div class="field"><div class="seg" id="tf-sent">${[['para_voce','PJ → você (retirada)'],['para_empresa','Você → PJ (aporte)']].map(([k,l]) =>
+      `<button type="button" data-v="${k}" class="${(t?.sentido || 'para_voce') === k ? 'on' : ''}" onclick="segPick(this)">${l}</button>`).join('')}</div></div>
+    <div class="f2"><div class="field"><label>Valor (R$)</label><input class="in num" id="tf-val" inputmode="decimal" value="${t ? moneyIn(t.valor) : ''}"></div>
+      <div class="field"><label>Data</label><input class="in" type="date" id="tf-data" value="${t?.data || hoje()}"></div></div>
+    <div class="field"><label>Descrição</label><input class="in" id="tf-desc" value="${esc(t?.descricao || '')}" placeholder="Opcional"></div>
+    <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarTransf(${t ? `'${t.id}'` : 'null'})">Salvar</button>
+      ${t ? `<button class="btn btn-d" onclick="excluirTransf('${t.id}')">${ic('trash')}</button>` : ''}</div>`);
+}
+async function salvarTransf(tid){
+  const v = parseMoney(fv('tf-val')); if (!v) return toast('Coloque o valor.', true);
+  const d = fv('tf-data'); if (!d) return toast('Escolha a data.', true);
+  const row = { valor:v, data:d, sentido:$('tf-sent').querySelector('button.on')?.dataset.v || 'para_voce', descricao:fv('tf-desc').trim() || null };
+  const ok = await act(async () => {
+    if (tid) { const [n] = await db.upd('tdh_transferencias', eqId(tid), row); Object.assign(S.transf.find(x => x.id === tid), n); }
+    else S.transf.push(...await db.ins('tdh_transferencias', row));
+    return true; }, 'Salvo.');
+  if (ok) { closeModal(); rerender(); }
+}
+function excluirTransf(tid){ closeModal();
+  confirmar('Excluir transferência', 'Apagar esta transferência?', 'Excluir', async () => {
+    const ok = await act(async () => { await db.del('tdh_transferencias', eqId(tid)); S.transf = S.transf.filter(t => t.id !== tid); return true; });
+    if (ok) rerender(); }, true); }
+
+// ── Números do mês ─────────────────────────────────────────────────
+// Regime de caixa: conta o que entrou e saiu no mês, pela data em que o
+// dinheiro andou. É o que bate com o extrato. O lucro de cada obra, que
+// junta datas diferentes, fica na tela do serviço.
+function finMes(mes){
+  const no = d => (d || '').startsWith(mes);
+  const receb = S.receb.filter(r => no(r.recebido_em) && servExiste(r.servico_id));
+  const gastos = S.gastos.filter(g => no(g.data));
+  const reps = S.vinc.filter(v => v.repasse_status === 'pago' && no(v.repassado_em));
+  const transf = S.transf.filter(t => no(t.data));
+  const soma = (a, f) => a.reduce((t,x) => t + num(f(x)), 0);
+  const fat = soma(receb, r => r.valor);
+  const gObra = soma(gastos.filter(g => g.servico_id), g => g.valor);
+  const gFixo = soma(gastos.filter(g => !g.servico_id), g => g.valor);
+  const rep = soma(reps, v => v.valor_repasse);
+  // Retirada = lucro que foi para você: transferência PJ → você que não
+  // seja reembolso, mais recebimento da PF que ficou com você.
+  const retirado = soma(transf.filter(t => t.sentido === 'para_voce' && !t.gasto_id && !t.repasse_id), t => t.valor)
+    + soma(receb.filter(r => r.conta === 'pf' && r.acerto === 'retirada'), r => r.valor);
+  const aporte = soma(transf.filter(t => t.sentido === 'para_empresa' && !t.recebimento_id), t => t.valor)
+    + soma(gastos.filter(g => g.conta === 'pf' && g.acerto === 'aporte'), g => g.valor)
+    + soma(reps.filter(v => v.conta === 'pf' && v.acerto === 'aporte'), v => v.valor_repasse);
+  const porCat = {}; gastos.forEach(g => porCat[g.categoria] = (porCat[g.categoria] || 0) + num(g.valor));
+  return { fat, gObra, gFixo, rep, lucro: fat - gObra - gFixo - rep, retirado, aporte, porCat,
+    fixos: gastos.filter(g => !g.servico_id), transf, nReceb: receb.length };
+}
+// Saldo que deveria estar na conta PJ, desde o começo. Não tem saldo
+// inicial próprio: se a conta já tinha dinheiro, lance uma transferência
+// "Você → PJ" com esse valor e a descrição "Saldo inicial".
+function saldoPJ(){
+  const soma = (a, f) => a.reduce((t,x) => t + num(f(x)), 0);
+  return soma(S.receb.filter(r => r.conta === 'pj' && r.recebido_em && servExiste(r.servico_id)), r => r.valor)
+    - soma(S.gastos.filter(g => g.conta === 'pj'), g => g.valor)
+    - soma(S.vinc.filter(v => v.conta === 'pj' && v.repasse_status === 'pago'), v => v.valor_repasse)
+    + soma(S.transf.filter(t => t.sentido === 'para_empresa'), t => t.valor)
+    - soma(S.transf.filter(t => t.sentido === 'para_voce'), t => t.valor);
+}
+
+function vFinanceiro(r){
+  const mes = /^\d{4}-\d{2}$/.test(r.id || '') ? r.id : hoje().slice(0,7);
+  const [y, m] = mes.split('-').map(Number);
+  const prev = m === 1 ? `${y-1}-12` : `${y}-${String(m-1).padStart(2,'0')}`;
+  const next = m === 12 ? `${y+1}-01` : `${y}-${String(m+1).padStart(2,'0')}`;
+  const f = finMes(mes), sp = saldoPJ();
+  const pend = [...pendPF.receb().map(x => ['receb', x]), ...pendPF.gasto().map(x => ['gasto', x]), ...pendPF.repasse().map(x => ['repasse', x])];
+  const obras = S.servicos.filter(s => S.receb.some(x => x.servico_id === s.id && (x.recebido_em || '').startsWith(mes))
+    || S.gastos.some(g => g.servico_id === s.id && g.data.startsWith(mes)));
+  const cats = Object.entries(f.porCat).sort((a,b) => b[1] - a[1]);
+  return `
+  <a class="back" href="#/mais">${ic('left')} Mais</a>
+  <div class="pg-head"><h2 class="pg">Financeiro</h2></div>
+  <div class="cal-nav"><button class="icon-btn" onclick="go('#/financeiro/${prev}')">${ic('left')}</button>
+    <h3>${MESES[m-1]} ${y}</h3><button class="icon-btn" onclick="go('#/financeiro/${next}')">${ic('right')}</button></div>
+
+  ${pend.length ? `<div class="sec">Acertar com a PF</div><div class="list">${pend.map(([k,x]) => `<div class="row" onclick="modalAcerto('${k}','${x.id}')"><div class="main">
+      <div class="t">${ACERTO[k].desc(x)}</div><div class="m">${k === 'receb' ? 'Caiu na sua conta' : 'Saiu do seu bolso'} · ${fmtData(k === 'receb' ? x.recebido_em : k === 'repasse' ? x.repassado_em : x.data)}</div></div>
+      <div class="r val">${m$(ACERTO[k].valor(x))}</div></div>`).join('')}</div>` : ''}
+
+  <div class="sec">Resultado do mês</div>
+  <div class="card"><table class="sumtab">
+    <tr><td>Recebido dos clientes</td><td class="money">${money(f.fat)}</td></tr>
+    <tr><td>Gastos das obras</td><td class="neg money">− ${money(f.gObra)}</td></tr>
+    <tr><td>Repasses a prestadores</td><td class="neg money">− ${money(f.rep)}</td></tr>
+    <tr><td>Custos fixos</td><td class="neg money">− ${money(f.gFixo)}</td></tr>
+    <tr class="tot"><td>Lucro do mês</td><td class="money" style="color:${f.lucro < 0 ? 'var(--red)' : 'var(--green)'}">${money(f.lucro)}</td></tr>
+    <tr><td style="color:var(--text3)">Você retirou</td><td class="money" style="color:var(--text3)">${money(f.retirado)}</td></tr>
+    ${f.aporte ? `<tr><td style="color:var(--text3)">Você pôs na empresa</td><td class="money" style="color:var(--text3)">${money(f.aporte)}</td></tr>` : ''}
+  </table>
+  <div class="hint" style="margin-top:8px">Pelo dia em que o dinheiro entrou ou saiu. O lucro de cada obra está na tela do serviço.</div></div>
+
+  <div class="grid2" style="margin-top:12px">
+    <div class="kpi hi"><div class="k">Saldo da conta PJ (pelo app)</div><div class="v">${m$(sp)}</div><div class="s">compare com o extrato</div></div>
+    <div class="kpi"><div class="k">Acertos pendentes</div><div class="v">${pend.length}</div><div class="s">${pend.length ? 'dinheiro que passou pela PF' : 'tudo acertado'}</div></div>
+  </div>
+
+  <div class="btns" style="margin-top:12px">
+    <button class="btn btn-p" style="flex:1" onclick="modalGasto({})">${ic('plus')} Gasto</button>
+    <button class="btn btn-s" style="flex:1" onclick="modalGasto({ fixo:true })">${ic('plus')} Custo fixo</button>
+    <button class="btn btn-s" style="flex:1" onclick="modalTransf()">${ic('plus')} Transferência</button>
+  </div>
+
+  ${obras.length ? `<div class="sec">Obras com movimento no mês</div><div class="list">${obras.map(s => { const t = totaisServ(s.id);
+    return `<a class="row" href="#/serv/${s.id}"><div class="main"><div class="t">${esc(s.descricao)}</div>
+      <div class="m">${badgeServ(s)} ${t.temGasto ? 'lucro real' : 'lucro previsto (sem gasto lançado)'}</div></div>
+      <div class="r val" style="color:${t.lucro < 0 ? 'var(--red)' : 'inherit'}">${m$(t.lucro)}</div></a>`; }).join('')}</div>` : ''}
+
+  <div class="sec">Custos fixos</div>
+  <div class="list">${f.fixos.length ? f.fixos.map(rowGasto).join('') : '<div class="empty">Nenhum custo fixo no mês.</div>'}</div>
+
+  ${cats.length ? `<div class="sec">Gastos por categoria</div><div class="card"><table class="sumtab">${cats.map(([k,v]) =>
+    `<tr><td>${CAT_GASTO[k] || k}</td><td class="money">${money(v)}</td></tr>`).join('')}</table></div>` : ''}
+
+  <div class="sec">Transferências</div>
+  <div class="list">${f.transf.length ? f.transf.map(rowTransf).join('') : '<div class="empty">Nenhuma transferência no mês.</div>'}</div>`;
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    PRESTADORES

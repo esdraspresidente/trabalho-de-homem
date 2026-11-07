@@ -62,9 +62,31 @@ não manda).
   arredondado de 5 em 5. É a conta que fechou o orçamento 653.
 - **Custo interno** (ajudante, alimentação): não aparece para o cliente e
   não soma no total. Entra só no cálculo do lucro.
-- **Lucro do serviço:** valor cobrado − material − repasses.
+- **Lucro do serviço:** valor cobrado − gastos da obra − repasses. Enquanto
+  nenhum gasto for lançado, usa o material previsto (o `custo_material` do
+  serviço, que vem do orçamento) e a tela mostra "lucro previsto". Com gasto
+  lançado, vira "lucro real" e mostra a diferença para o previsto.
 - **Numeração dos orçamentos:** sequência no banco, a partir do 654. O
   rascunho não consome número; o número sai na emissão e nunca se repete.
+
+## Financeiro (v1.3.0)
+
+Estrutura comentada em `previmater-ops/_sql/tdh_03_financeiro.sql`.
+
+- **Gastos** (`tdh_gastos`): com obra = custo da obra; sem obra = custo fixo
+  do mês (anúncio, DAS, ferramenta). Lança pelo serviço, pelo atalho
+  "+ Gasto" do Painel ou pela tela Financeiro.
+- **Conta PJ / PF** em recebimento, gasto e repasse. A conta deveria ser só
+  da PJ, mas às vezes o dinheiro passa pela PF; sem marcar, o saldo não fecha.
+- **Acerto caso a caso** do que passou pela PF: recebimento "ficou comigo"
+  (retirada) ou "passei para a PJ"; gasto/repasse "a PJ me reembolsou" ou
+  "aporte meu". Sem acerto, fica em "Acertar com a PF". A transferência de
+  um acerto é criada e apagada pelo banco (trigger), nunca pelo app.
+- **Transferências** (`tdh_transferencias`): PJ → você (retirada) e
+  você → PJ (aporte). Saldo inicial da conta = transferência "Você → PJ".
+- **Tela Financeiro (Mais → Financeiro):** resultado do mês pelo dia em que
+  o dinheiro andou (regime de caixa, bate com o extrato), saldo da conta PJ
+  pelo app, custos fixos, gastos por categoria e transferências.
 
 ## Importar orçamento (montado no Claude)
 

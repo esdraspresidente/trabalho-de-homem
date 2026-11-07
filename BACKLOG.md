@@ -44,6 +44,20 @@ recusa qualquer import duplicado. Antes de criá-lo, em 26/10 foram removidos
 14 lançamentos de diligência duplicados (R$ 1.143), com cópia em
 `backup.fin_mov_duplicadas_20261026`.
 
+## Fullfin — importar só o que passa pela PF (combinado em 07/11/2026)
+
+Com o financeiro no próprio app (v1.3.0), o Fullfin deve ver só o que entra
+e sai da conta pessoal do Esdras, e não mais o faturamento bruto:
+
+- recebimento com `conta = 'pf'` (receita), gasto e repasse com
+  `conta = 'pf'` (despesa), transferências (PJ → você = receita;
+  você → PJ = despesa);
+- parar de importar recebimento e repasse da PJ a partir da publicação;
+- os 4 recebimentos já importados (R$ 880) ficam como estão.
+
+Até essa mudança, a aba antiga continua mostrando os recebimentos da PJ:
+não importar os novos.
+
 ## Ideias que surgiram
 
 - Catálogo de serviços frequentes (troca de chuveiro, instalação de TV)
