@@ -164,6 +164,37 @@ h2.pg{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;l
   border-radius:16px;padding:14px 18px;box-shadow:0 10px 24px -10px rgba(15,34,56,.55)}
 @media (min-width:900px){.fab{bottom:24px;right:28px}}
 
+/* ── COMANDO DE VOZ (igual ao Fullfin) ──
+   Verde de WhatsApp: já é a cor de "mandar áudio". Fica à ESQUERDA porque
+   a direita é dos botões "+ Novo ..." de cada tela. */
+#fab-voz{position:fixed;left:16px;bottom:calc(var(--tab-h) + 16px + env(safe-area-inset-bottom));z-index:16;
+  width:58px;height:58px;border-radius:50%;border:0;background:#25D366;color:#fff;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 12px 26px -8px rgba(37,211,102,.75);transition:transform .12s}
+#fab-voz svg.ic{width:28px;height:28px}
+#fab-voz:active{transform:scale(.93)}
+/* Espaço no fim da página para o botão não cobrir a última linha. */
+main#view{padding-bottom:calc(var(--tab-h) + 92px + env(safe-area-inset-bottom))}
+@media (min-width:900px){#fab-voz{left:calc(var(--side-w) + 24px);bottom:24px} main#view{padding-bottom:100px}}
+/* Tela de gravação: o botão de enviar (≈3x o verde) fica EMBAIXO, perto de
+   onde o polegar acabou de tocar — encerra sem mirar no meio da tela. */
+#voz-overlay{position:fixed;inset:0;z-index:60;background:rgba(10,20,40,.74);display:none;flex-direction:column;
+  align-items:center;justify-content:flex-end;gap:18px;padding-bottom:calc(env(safe-area-inset-bottom) + 28px);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+#voz-overlay.aberto{display:flex}
+#voz-parar{width:176px;height:176px;border-radius:50%;border:0;cursor:pointer;background:#25D366;color:#fff;
+  display:flex;align-items:center;justify-content:center;animation:vozPulso 1.4s ease-in-out infinite}
+#voz-parar svg.ic{width:64px;height:64px}
+#voz-parar:active{transform:scale(.95)}
+#voz-tempo{color:#fff;font-size:30px;font-weight:800;font-variant-numeric:tabular-nums}
+#voz-dica{color:rgba(255,255,255,.88);font-size:15px;font-weight:600;text-align:center;padding:0 24px}
+#voz-cancelar{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:999px;
+  padding:10px 26px;font-size:14px;font-weight:700;cursor:pointer}
+@keyframes vozPulso{0%,100%{box-shadow:0 0 0 0 rgba(37,211,102,.6)}50%{box-shadow:0 0 0 26px rgba(37,211,102,0)}}
+.voz-banner{background:var(--yel-bg);border:1px solid #F2CF8A;border-radius:11px;padding:10px 12px;margin-bottom:14px;
+  font-size:13px;color:#6B4A00;line-height:1.4}
+.voz-banner ul{margin:6px 0 0 16px;padding:0}
+.voz-vazio{outline:2px solid var(--yel) !important;outline-offset:1px}
+
 .field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;min-width:0}
 .field label,.lbl{font-size:12.5px;font-weight:700;color:var(--text2)}
 .field .hint{font-size:12px;color:var(--text3)}
@@ -360,6 +391,14 @@ table.pdf-t .ds{color:#5A6169;font-size:12px;margin-top:2px;line-height:1.4}
   <nav class="side" id="side"></nav>
   <main id="view"></main>
   <nav class="tabs" id="tabs"></nav>
+  <!-- Comando de voz: fica dentro do #app para não aparecer na tela de login. -->
+  <button id="fab-voz" onclick="vozToggle()" aria-label="Lançar por voz"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+  <div id="voz-overlay" role="dialog" aria-label="Gravando comando de voz">
+    <div id="voz-tempo">0:00</div>
+    <div id="voz-dica">Fale o gasto e toque no botão para enviar</div>
+    <button id="voz-parar" onclick="vozParar(false)" aria-label="Parar e enviar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg></button>
+    <button id="voz-cancelar" onclick="vozParar(true)">Cancelar</button>
+  </div>
 </div>
 
 <div id="modal" class="hidden" onclick="if(event.target===this)closeModal()"><div class="sheet" id="sheet"></div></div>
@@ -384,7 +423,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.4.1';
+const APP_VER = '1.5.0';
 
 /* ═══ Cliente Supabase ═══════════════════════════════════════════════
    Escrito à parte, e não copiado do Diligências, porque o de lá aceita
@@ -1950,32 +1989,46 @@ function rowGasto(g){
 }
 // op: { sid } abre já ligado à obra; { fixo:true } abre como custo fixo;
 // {} (atalho do Painel) pergunta a obra; { gid } edita.
+// { voz } vem do comando de voz: abre como gasto novo, já preenchido, com a
+// faixa do que foi ouvido. A obra entra na lista mesmo que o filtro abaixo
+// a deixasse de fora, porque a function já conferiu que ela aceita gasto.
 function modalGasto(op = {}){
   const g = op.gid ? S.gastos.find(x => x.id === op.gid) : null;
-  const sid = g ? g.servico_id : op.sid;
+  const pre = !g && op.voz ? op.voz : null;
+  const sid = g ? g.servico_id : (op.sid || pre?.campos?.servico_id || null);
   // Serviço finalizado fica de fora: o banco recusa gasto novo nele.
   const obras = S.servicos.filter(s => s.id === sid || !s.finalizado_em).filter(s => s.status === 'a_agendar' || s.status === 'agendado' || s.id === sid
     || (s.status === 'executado' && agendasDe(s.id).some(a => a.data >= addDias(hoje(), -30))));
   const escolheObra = !op.sid || g;
-  openModal(g ? 'Editar gasto' : (op.fixo ? 'Custo fixo' : 'Novo gasto'), `
-    <div class="f2"><div class="field"><label>Valor (R$)</label><input class="in num" id="gs-val" inputmode="numeric" data-money value="${g ? moneyIn(g.valor) : ''}"></div>
-      <div class="field"><label>Data</label><input class="in" type="date" id="gs-data" value="${g?.data || hoje()}"></div></div>
+  const pc = pre?.campos || {};
+  openModal(g ? 'Editar gasto' : (op.fixo ? 'Custo fixo' : 'Novo gasto'), `${pre ? vozBanner(pre) : ''}
+    <div class="f2"><div class="field"><label>Valor (R$)</label><input class="in num" id="gs-val" inputmode="numeric" data-money value="${g ? moneyIn(g.valor) : moneyIn(pc.valor)}"></div>
+      <div class="field"><label>Data</label><input class="in" type="date" id="gs-data" value="${g?.data || pc.data || hoje()}"></div></div>
     <div class="field"><label>Categoria</label><div class="chips" id="gs-cat">${Object.entries(CAT_GASTO).map(([k,t]) =>
-      `<button class="chip ${(g?.categoria || (op.fixo ? '' : 'material')) === k ? 'on' : ''}" data-v="${k}" onclick="chipUnico(this)">${t}</button>`).join('')}</div></div>
-    <div class="field"><label>Descrição</label><input class="in" id="gs-desc" value="${esc(g?.descricao || '')}" placeholder="Ex.: nota da Leroy, disjuntores"></div>
+      `<button class="chip ${(g?.categoria || pc.categoria || (op.fixo ? '' : 'material')) === k ? 'on' : ''}" data-v="${k}" onclick="chipUnico(this)">${t}</button>`).join('')}</div></div>
+    <div class="field"><label>Descrição</label><input class="in" id="gs-desc" value="${esc(g?.descricao || pc.descricao || '')}" placeholder="Ex.: nota da Leroy, disjuntores"></div>
     ${escolheObra ? `<div class="field"><label>Obra</label><select class="in" id="gs-obra">
-      <option value="">— custo fixo (sem obra) —</option>${obras.map(s => `<option value="${s.id}" ${s.id === sid ? 'selected' : ''}>${esc(s.descricao)}${cliente(s.cliente_id) ? ' · ' + esc(nomeC(cliente(s.cliente_id))) : ''}</option>`).join('')}
+      ${pre && !sid && !pc.sem_obra ? '<option value="__" selected>— escolha a obra —</option>' : ''}<option value="">— custo fixo (sem obra) —</option>${obras.map(s => `<option value="${s.id}" ${s.id === sid ? 'selected' : ''}>${esc(s.descricao)}${cliente(s.cliente_id) ? ' · ' + esc(nomeC(cliente(s.cliente_id))) : ''}</option>`).join('')}
       </select>${op.fixo ? '' : '<div class="hint">Sem obra conta como custo fixo do mês (anúncio, DAS, ferramenta).</div>'}</div>` : ''}
-    <div class="field"><label>Saiu de</label>${segConta('gs-conta', g?.conta)}</div>
+    <div class="field"><label>Saiu de</label>${segConta('gs-conta', g?.conta || pc.conta)}</div>
     ${g?.acerto ? `<div class="hint" style="margin:-6px 0 12px">Acerto: ${ACERTO_TXT[g.acerto]} em ${fmtData(g.acerto_em)}. <button class="lnk" style="border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer;padding:0" onclick="modalAcerto('gasto','${g.id}')">Mudar</button></div>` : ''}
     <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarGasto(${g ? `'${g.id}'` : 'null'}, ${!escolheObra ? `'${sid}'` : 'null'})">Salvar</button>
       ${g ? `<button class="btn btn-d" onclick="excluirGasto('${g.id}')">${ic('trash')}</button>` : ''}</div>`);
+  if (pre) {
+    // Sem foco no valor: o teclado subiria por cima do que é para conferir.
+    // Obra em branco só é marcada se não foi dito "sem obra" (custo fixo).
+    vozMarcarVazios(['gs-val', ...(pc.sem_obra ? [] : ['gs-obra'])]);
+    return;
+  }
   setTimeout(() => $('gs-val')?.focus(), 50);
 }
 async function salvarGasto(gid, sidPreso){
   const v = parseMoney(fv('gs-val')); if (!v) return toast('Coloque o valor.', true);
   const cat = $('gs-cat').querySelector('.chip.on')?.dataset.v; if (!cat) return toast('Escolha a categoria.', true);
   const data = fv('gs-data'); if (!data) return toast('Escolha a data.', true);
+  // "__" só existe no gasto aberto pela voz sem obra definida: sem esta
+  // trava, salvar sem olhar mandaria o gasto da obra para custo fixo.
+  if (fv('gs-obra') === '__') return toast('Escolha a obra (ou "custo fixo").', true);
   const row = { valor:v, data, categoria:cat, descricao:fv('gs-desc').trim() || null,
     servico_id: sidPreso || ($('gs-obra') ? fv('gs-obra') || null : null), ...contaPatch(segVal('gs-conta')) };
   let novo = null;
@@ -1990,6 +2043,115 @@ function excluirGasto(gid){ closeModal();
   confirmar('Excluir gasto', 'Apagar este gasto?', 'Excluir', async () => {
     const ok = await act(async () => { await db.del('tdh_gastos', eqId(gid)); S.gastos = S.gastos.filter(g => g.id !== gid); await load('transf'); return true; });
     if (ok) rerender(); }, true); }
+
+// ── Comando de voz ─────────────────────────────────────────────────
+// Toque no microfone verde, fale ("gastei 89,50 no Balaroti na obra da
+// Setup"), toque no botão grande. O áudio vai para a function tdh-voz
+// (previmater-ops), que transcreve e devolve os campos.
+//
+// A voz NUNCA grava no banco. Ela só abre o "Novo gasto" de sempre já
+// preenchido, e quem salva é o Salvar de sempre. Motivo: um só caminho de
+// gravação (acerto PF, trava de obra finalizada continuam iguais) e todo
+// erro de interpretação é visto antes de virar dado. Campo que a IA não
+// teve certeza vem vazio e marcado em amarelo.
+//
+// Para a próxima versão (orçamento, recebimento, repasse): cada ação nova
+// da function ganha um "if (j.acao === ...)" em vozAplicar, abrindo o
+// formulário que já existe para ela.
+const VOZ_URL = SB_URL + '/functions/v1/tdh-voz';
+// Teto de gravação: comando é curto. Passou disso, é gravação esquecida
+// ligada — para sozinho e envia o que tem.
+const VOZ_MAX_SEG = 45;
+const _voz = { rec:null, stream:null, partes:[], timer:null, t0:0, cancelado:false, ocupado:false };
+
+async function vozToggle(){
+  if (_voz.ocupado) return;
+  if (_voz.rec && _voz.rec.state === 'recording') { vozParar(false); return; }
+  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') return toast('Este aparelho não permite gravar áudio aqui.', true);
+  try { _voz.stream = await navigator.mediaDevices.getUserMedia({ audio:true }); }
+  catch(e) { return toast('Libere o microfone para o app nas configurações do navegador.', true); }
+  // iPhone grava em mp4; Android/desktop em webm. A function aceita os dois.
+  const tipos = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg;codecs=opus'];
+  const mime = tipos.find(t => { try { return MediaRecorder.isTypeSupported(t); } catch(e) { return false; } }) || '';
+  try { _voz.rec = mime ? new MediaRecorder(_voz.stream, { mimeType:mime }) : new MediaRecorder(_voz.stream); }
+  catch(e) { vozSoltarMic(); return toast('Não consegui iniciar a gravação.', true); }
+  _voz.partes = []; _voz.cancelado = false; _voz.t0 = Date.now();
+  _voz.rec.ondataavailable = e => { if (e.data?.size) _voz.partes.push(e.data); };
+  _voz.rec.onstop = () => { vozSoltarMic(); if (!_voz.cancelado) vozEnviar(); };
+  _voz.rec.start();
+  $('voz-overlay').classList.add('aberto');
+  const tick = () => {
+    const seg = Math.floor((Date.now() - _voz.t0) / 1000);
+    $('voz-tempo').textContent = Math.floor(seg/60) + ':' + String(seg % 60).padStart(2, '0');
+    if (seg >= VOZ_MAX_SEG) vozParar(false);
+  };
+  tick(); _voz.timer = setInterval(tick, 500);
+}
+
+function vozParar(cancelar){
+  _voz.cancelado = !!cancelar;
+  clearInterval(_voz.timer);
+  $('voz-overlay').classList.remove('aberto');
+  try { if (_voz.rec?.state === 'recording') _voz.rec.stop(); else vozSoltarMic(); } catch(e) { vozSoltarMic(); }
+}
+
+// Desliga o microfone de verdade: sem isso o iPhone deixa o ícone de
+// gravação aceso até fechar o app.
+function vozSoltarMic(){ try { _voz.stream?.getTracks().forEach(t => t.stop()); } catch(e){} _voz.stream = null; }
+
+async function vozEnviar(){
+  const tipo = _voz.rec?.mimeType || 'audio/webm';
+  const blob = new Blob(_voz.partes, { type:tipo });
+  if (blob.size < 1500) return toast('Não deu para ouvir. Toque e fale de novo.', true);
+  _voz.ocupado = true; loading(true);
+  try {
+    // Mesma renovação de sessão do resto do app: token vencido renova antes.
+    if (sess?.expires_at && sess.expires_at - 60 < Date.now()/1000) await refreshSess();
+    if (!sess?.access_token) throw new Error('Entre de novo no app.');
+    const fd = new FormData();
+    fd.append('audio', blob, 'comando.' + (tipo.includes('mp4') ? 'mp4' : tipo.includes('ogg') ? 'ogg' : 'webm'));
+    fd.append('hoje', hoje());   // data LOCAL: a function roda em UTC
+    const r = await fetch(VOZ_URL, { method:'POST', headers:{ Authorization:'Bearer ' + sess.access_token, apikey:SB_KEY }, body:fd });
+    const j = await r.json().catch(() => ({ ok:false, erro:'resposta inválida (' + r.status + ')' }));
+    loading(false);
+    if (!j.ok) return vozNaoEntendi(j.transcricao, [j.erro || 'Falhou.']);
+    vozAplicar(j);
+  } catch(e) {
+    loading(false); toast(e?.message || 'Sem conexão.', true);
+  } finally { _voz.ocupado = false; loading(false); }
+}
+
+function vozAplicar(j){
+  if (j.acao === 'novo_gasto') return modalGasto({ voz:j });
+  vozNaoEntendi(j.transcricao, j.duvidas);
+}
+
+// Faixa no topo do formulário: o que foi ouvido + o que ficou em aberto.
+// Mostrar a frase ouvida é o que deixa perceber erro de transcrição
+// ("89,50" ouvido como "8.950").
+function vozBanner(j){
+  const d = (j.duvidas || []).map(x => `<li>${esc(x)}</li>`).join('');
+  return `<div class="voz-banner"><div><b>Você disse:</b> “${esc(j.transcricao)}”</div>
+    ${d ? `<ul>${d}</ul>` : ''}
+    <div style="margin-top:6px;font-weight:700">Confira e toque em Salvar.${d ? ' Campos em amarelo ficaram em branco.' : ''}</div></div>`;
+}
+function vozMarcarVazios(ids){
+  ids.forEach(id => {
+    const el = $(id); if (!el || (el.value && el.value !== '__')) return;
+    el.classList.add('voz-vazio');
+    const tira = () => el.classList.remove('voz-vazio');
+    el.addEventListener('change', tira, { once:true }); el.addEventListener('input', tira, { once:true });
+  });
+}
+function vozNaoEntendi(transcricao, duvidas){
+  const d = (duvidas || []).map(x => `<li>${esc(x)}</li>`).join('');
+  openModal('Não entendi o comando', `
+    ${transcricao ? `<div style="font-size:14px;margin-bottom:10px"><b>Você disse:</b> “${esc(transcricao)}”</div>` : ''}
+    ${d ? `<ul style="margin:0 0 12px 18px;padding:0;font-size:13px;color:var(--text2)">${d}</ul>` : ''}
+    <div class="hint" style="font-size:13px;color:var(--text3);margin-bottom:14px">Exemplos: “gastei 89,50 no Balaroti na obra da Setup” · “abasteci 120 reais pro chuveiro da Dona Maria, do meu bolso” · “custo fixo, 60 reais de anúncio no Instagram”.</div>
+    <div class="btns"><button class="btn btn-s" style="flex:1" onclick="closeModal();setTimeout(vozToggle,250)">Falar de novo</button>
+      <button class="btn btn-p" style="flex:1" onclick="closeModal();modalGasto({})">Lançar à mão</button></div>`);
+}
 
 // ── Acerto com a PF ────────────────────────────────────────────────
 const ACERTO = {
