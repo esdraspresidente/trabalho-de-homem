@@ -165,16 +165,18 @@ h2.pg{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;l
 @media (min-width:900px){.fab{bottom:24px;right:28px}}
 
 /* ── COMANDO DE VOZ (igual ao Fullfin) ──
-   Verde de WhatsApp: já é a cor de "mandar áudio". Fica à ESQUERDA porque
-   a direita é dos botões "+ Novo ..." de cada tela. */
-#fab-voz{position:fixed;left:16px;bottom:calc(var(--tab-h) + 16px + env(safe-area-inset-bottom));z-index:16;
+   Verde de WhatsApp: já é a cor de "mandar áudio". Fica à DIREITA, onde o
+   polegar alcança (pedido do Esdras em 08/11/2026). Nas telas que têm o
+   botão "+ Novo ...", sobe para ficar logo acima dele, sem cobrir. */
+#fab-voz{position:fixed;right:16px;bottom:calc(var(--tab-h) + 16px + env(safe-area-inset-bottom));z-index:16;
   width:58px;height:58px;border-radius:50%;border:0;background:#25D366;color:#fff;cursor:pointer;
   display:flex;align-items:center;justify-content:center;box-shadow:0 12px 26px -8px rgba(37,211,102,.75);transition:transform .12s}
 #fab-voz svg.ic{width:28px;height:28px}
 #fab-voz:active{transform:scale(.93)}
 /* Espaço no fim da página para o botão não cobrir a última linha. */
 main#view{padding-bottom:calc(var(--tab-h) + 92px + env(safe-area-inset-bottom))}
-@media (min-width:900px){#fab-voz{left:calc(var(--side-w) + 24px);bottom:24px} main#view{padding-bottom:100px}}
+#app:has(.fab) #fab-voz{bottom:calc(var(--tab-h) + 80px + env(safe-area-inset-bottom))}
+@media (min-width:900px){#fab-voz{right:28px;bottom:24px} #app:has(.fab) #fab-voz{bottom:88px} main#view{padding-bottom:100px}}
 /* Tela de gravação: o botão de enviar (≈3x o verde) fica EMBAIXO, perto de
    onde o polegar acabou de tocar — encerra sem mirar no meio da tela. */
 #voz-overlay{position:fixed;inset:0;z-index:60;background:rgba(10,20,40,.74);display:none;flex-direction:column;
@@ -432,7 +434,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.8.0';
+const APP_VER = '1.8.1';
 
 /* ═══ Cliente Supabase ═══════════════════════════════════════════════
    Escrito à parte, e não copiado do Diligências, porque o de lá aceita
@@ -2201,6 +2203,13 @@ async function vozEnviar(){
 async function vozAplicar(j){
   const c = j.campos || {};
   if (j.acao === 'consulta') return assistResposta(j);
+  // Ordem dada dentro da conversa: não entendida fica na própria conversa;
+  // entendida abre a tela de confirmação de sempre, e a conversa guarda o
+  // registro (reabrindo o balão, ela continua de onde parou).
+  if (_assist.aberto) {
+    if (j.acao === 'nao_entendi') return assistResposta({ ...j, resposta:'Não consegui entender a ordem.' + ((j.duvidas || []).length ? '\n• ' + j.duvidas.join('\n• ') : ''), itens:[] });
+    _assist.fio.push({ p:j.transcricao, r:'Abri a tela para você confirmar.', itens:[] });
+  }
   if (j.acao === 'novo_gasto') return modalGasto({ voz:j });
   // Contato novo: mesmos padrões do botão "Novo contato" dos Retornos
   // (conversando, retorno em 2 dias), a não ser que a data tenha sido dita.
@@ -2364,7 +2373,7 @@ function assistAbrir(){
       <button class="btn" style="padding:11px 13px;background:#25D366;color:#fff" onclick="vozToggle()" aria-label="Perguntar falando"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
     </div>
     ${_assist.fio.length ? '' : `<div class="hint" style="font-size:12.5px;color:var(--text3);margin-top:10px">Exemplos: “o que está atrasado?” · “quem eu preciso retornar hoje?” · “e a Setup, falta o quê?” · “o que tenho amanhã?” · “quanto tenho para receber?”</div>`}
-    <div class="hint" style="font-size:12px;color:var(--text3);margin-top:8px">Só consulta: o assistente não muda nada no app.</div>`);
+    <div class="hint" style="font-size:12px;color:var(--text3);margin-top:8px">Pode dar ordem aqui também (“o Alessandro aprovou”, “recebi 300 da Setup”): abre a tela para você confirmar. Nada é gravado sem o seu toque.</div>`);
   assistRolar();
 }
 function assistFioHtml(){
@@ -2386,7 +2395,8 @@ async function assistEnviarTexto(){
     const r = await fetch(VOZ_URL, { method:'POST', headers:{ Authorization:'Bearer ' + sess.access_token, apikey:SB_KEY }, body:fd });
     const j = await r.json().catch(() => ({ ok:false, erro:'resposta inválida (' + r.status + ')' }));
     if (!j.ok) return toast(j.erro || 'Falhou.', true);
-    assistResposta(j);
+    $('as-txt') && ($('as-txt').value = '');
+    vozAplicar(j);
   } catch(e) { toast(e?.message || 'Sem conexão.', true); }
   finally { _voz.ocupado = false; loading(false); }
 }
