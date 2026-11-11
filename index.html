@@ -406,7 +406,7 @@ table.pdf-t .ds{color:#5A6169;font-size:12px;margin-top:2px;line-height:1.4}
   <button id="fab-voz" onclick="vozToggle()" aria-label="Lançar por voz"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
   <div id="voz-overlay" role="dialog" aria-label="Gravando comando de voz">
     <div id="voz-tempo">0:00</div>
-    <div id="voz-dica">Fale e toque no botão para enviar<br><small style="font-weight:500;opacity:.8">gasto · orçamento aprovado · recebi · paguei · marcar dia · novo contato</small></div>
+    <div id="voz-dica">Fale e toque no botão para enviar<br><small style="font-weight:500;opacity:.8">gasto (diga "imprevisto" se não estava previsto) · orçamento aprovado · recebi · paguei · marcar dia · novo contato</small></div>
     <button id="voz-parar" onclick="vozBotaoGrande()" aria-label="Parar e enviar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg></button>
     <button id="voz-cancelar" onclick="vozParar(true)">Cancelar</button>
   </div>
@@ -434,7 +434,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.8.2';
+const APP_VER = '1.9.0';
 
 /* ═══ Cliente Supabase ═══════════════════════════════════════════════
    Escrito à parte, e não copiado do Diligências, porque o de lá aceita
@@ -694,12 +694,16 @@ function totaisServ(sid){
   // nenhum, vale a previsão: serviço recém-aprovado não pode aparecer com
   // lucro de 100% só porque a compra ainda não foi feita.
   const gs = gastosDe(sid), gastoReal = gs.reduce((t,g) => t + num(g.valor), 0), temGasto = gs.length > 0;
+  // Imprevisto = compra que não estava no escopo orçado (marcada pelo
+  // Esdras na voz ou na chave do gasto). Já está dentro de gastoReal: aqui
+  // só se separa para mostrar quanto do lucro foi embora com imprevisto.
+  const gastoImprev = gs.filter(g => g.imprevisto).reduce((t,g) => t + num(g.valor), 0);
   const previsto = num(s?.custo_material);
   const lucroPrev = num(s?.valor_cobrado) - previsto - repasse;
   // Finalizado: vale o lucro guardado na finalização, que é o que foi
   // para o Fullfin (recebido − gastos − repasses).
   const lucro = s?.finalizado_em ? num(s.lucro_final) : num(s?.valor_cobrado) - (temGasto ? gastoReal : previsto) - repasse;
-  return { repasse, repPago, lancado, recebido, aReceber: lancado - recebido, lucro, lucroPrev, previsto, gastoReal, temGasto };
+  return { repasse, repPago, lancado, recebido, aReceber: lancado - recebido, lucro, lucroPrev, previsto, gastoReal, gastoImprev, temGasto };
 }
 const orcEditavel = o => o && (o.status === 'rascunho' || o.status === 'enviado');
 const orcVencido = o => o?.status === 'enviado' && o.emissao && addDias(o.emissao, num(o.validade_dias)) < hoje();
@@ -1755,7 +1759,7 @@ function vServ(r){
   <div class="card"><table class="sumtab">
     <tr><td>Cobrado do cliente</td><td class="money">${money(s.valor_cobrado)}</td></tr>
     ${t.temGasto
-      ? `<tr><td>Gastos da obra</td><td class="neg money">− ${money(t.gastoReal)}</td></tr>`
+      ? `<tr><td>Gastos da obra</td><td class="neg money">− ${money(t.gastoReal)}</td></tr>${t.gastoImprev ? `<tr><td style="color:var(--red);padding-left:14px">dos quais imprevistos</td><td class="money" style="color:var(--red)">${money(t.gastoImprev)}</td></tr>` : ''}`
       : `<tr><td>Material previsto</td><td class="neg money">− ${money(t.previsto)}</td></tr>`}
     <tr><td>Repasses</td><td class="neg money">− ${money(t.repasse)}</td></tr>
     <tr class="tot"><td>${fin ? 'Lucro final' : t.temGasto ? 'Seu lucro real' : 'Seu lucro previsto'}</td><td class="money" style="color:${t.lucro < 0 ? 'var(--red)' : 'var(--green)'}">${money(t.lucro)}</td></tr>
@@ -1995,6 +1999,10 @@ const ACERTO_TXT = { retirada:'ficou comigo', devolvido:'devolvi à PJ', reembol
 const segConta = (id, v) => `<div class="seg" id="${id}">${[['pj','Conta PJ'],['pf','Minha conta (PF)']]
   .map(([k,t]) => `<button type="button" data-v="${k}" class="${(v || 'pj') === k ? 'on' : ''}" onclick="segPick(this)">${t}</button>`).join('')}</div>`;
 function segPick(el){ el.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === el)); }
+// Previsto/Imprevisto. Padrão é Previsto: gasto sem marca conta como
+// previsto, que é a regra combinada (só é imprevisto quando ele diz).
+const segImprev = (id, v) => `<div class="seg" id="${id}">${[['0','Previsto'],['1','Imprevisto']]
+  .map(([k,t]) => `<button type="button" data-v="${k}" class="${(v ? '1' : '0') === k ? 'on' : ''}" onclick="segPick(this)">${t}</button>`).join('')}</div>`;
 const segVal = id => $(id)?.querySelector('button.on')?.dataset.v || 'pj';
 // Voltar para PJ apaga o acerto: o banco não aceita acerto em dinheiro
 // da PJ, e a transferência que ele tinha gerado some junto (trigger).
@@ -2019,7 +2027,7 @@ function pfInfo(kind, x){
 function rowGasto(g){
   const s = g.servico_id ? serv(g.servico_id) : null;
   return `<div class="row" onclick="modalGasto({ gid:'${g.id}' })"><div class="main">
-    <div class="t">${CAT_GASTO[g.categoria] || g.categoria}${g.descricao ? ' · ' + esc(g.descricao) : ''}</div>
+    <div class="t">${CAT_GASTO[g.categoria] || g.categoria}${g.descricao ? ' · ' + esc(g.descricao) : ''}${g.imprevisto ? ' <span class="badge b-red">Imprevisto</span>' : ''}</div>
     <div class="m">${fmtData(g.data)}${s && route().page !== 'serv' ? ' · ' + esc(s.descricao) : ''}${pfInfo('gasto', g)}</div></div>
     <div class="r val">${m$(g.valor)}</div></div>`;
 }
@@ -2046,6 +2054,8 @@ function modalGasto(op = {}){
     ${escolheObra ? `<div class="field"><label>Obra</label><select class="in" id="gs-obra">
       ${pre && !sid && !pc.sem_obra ? '<option value="__" selected>— escolha a obra —</option>' : ''}<option value="">— custo fixo (sem obra) —</option>${obras.map(s => `<option value="${s.id}" ${s.id === sid ? 'selected' : ''}>${esc(s.descricao)}${cliente(s.cliente_id) ? ' · ' + esc(nomeC(cliente(s.cliente_id))) : ''}</option>`).join('')}
       </select>${op.fixo ? '' : '<div class="hint">Sem obra conta como custo fixo do mês (anúncio, DAS, ferramenta).</div>'}</div>` : ''}
+    ${op.fixo ? '' : `<div class="field"><label>Estava previsto no orçamento?</label>${segImprev('gs-imprev', g ? g.imprevisto : pc.imprevisto)}
+      <div class="hint">Imprevisto = compra fora do escopo orçado (ex.: lona que não estava no serviço). Não muda o lucro, só mostra quanto saiu com imprevisto.</div></div>`}
     <div class="field"><label>Saiu de</label>${segConta('gs-conta', g?.conta || pc.conta)}</div>
     ${g?.acerto ? `<div class="hint" style="margin:-6px 0 12px">Acerto: ${ACERTO_TXT[g.acerto]} em ${fmtData(g.acerto_em)}. <button class="lnk" style="border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer;padding:0" onclick="modalAcerto('gasto','${g.id}')">Mudar</button></div>` : ''}
     <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarGasto(${g ? `'${g.id}'` : 'null'}, ${!escolheObra ? `'${sid}'` : 'null'})">Salvar</button>
@@ -2067,6 +2077,8 @@ async function salvarGasto(gid, sidPreso){
   if (fv('gs-obra') === '__') return toast('Escolha a obra (ou "custo fixo").', true);
   const row = { valor:v, data, categoria:cat, descricao:fv('gs-desc').trim() || null,
     servico_id: sidPreso || ($('gs-obra') ? fv('gs-obra') || null : null), ...contaPatch(segVal('gs-conta')) };
+  // Custo fixo (sem obra) não tem orçamento para fugir: nunca é imprevisto.
+  row.imprevisto = !!row.servico_id && $('gs-imprev')?.querySelector('button.on')?.dataset.v === '1';
   let novo = null;
   const ok = await act(async () => {
     if (gid) { const [n] = await db.upd('tdh_gastos', eqId(gid), row); Object.assign(S.gastos.find(x => x.id === gid), n); }
@@ -2350,7 +2362,7 @@ function vozSituacao(){
       + (futuro ? ` — próximo dia ${fmtData(futuro)}` : s.status !== 'executado' ? ' — SEM DIA MARCADO' : '') + (ult ? ` — último dia ${fmtData(ult)}` : '')
       + ` — cobrado ${money(s.valor_cobrado)}, recebido ${money(t.recebido)}, falta receber ${money(t.aReceber)}`
       + (recAtr.length ? ` (ATRASADO: ${recAtr.map(r => r.descricao + ' ' + money(r.valor) + ' previsto ' + fmtData(r.previsao)).join('; ')})` : '')
-      + ` — gastos lançados ${money(t.gastoReal)}` + (repP.length ? ` — repasse a pagar: ${repP.map(v => (prestador(v.prestador_id)?.nome || 'a definir') + ' ' + money(v.valor_repasse)).join('; ')}` : ''));
+      + ` — gastos lançados ${money(t.gastoReal)}` + (t.gastoImprev ? ` (imprevistos ${money(t.gastoImprev)})` : '') + (repP.length ? ` — repasse a pagar: ${repP.map(v => (prestador(v.prestador_id)?.nome || 'a definir') + ' ' + money(v.valor_repasse)).join('; ')}` : ''));
   });
 
   const ag = S.agendas.filter(a => a.data >= h && a.data <= addDias(h, 7) && agAtiva(a)).sort((a, b) => (a.data + (a.horario_inicio || '')).localeCompare(b.data + (b.horario_inicio || '')));
@@ -2545,7 +2557,7 @@ function vFinalizar(r){
 
   <div class="sec">Saiu · gastos da obra</div>
   <div class="list">${gs.length ? gs.map(g => `<div class="row" onclick="modalGasto({ gid:'${g.id}' })"><div class="main">
-      <div class="t">${CAT_GASTO[g.categoria] || g.categoria}${g.descricao ? ' · ' + esc(g.descricao) : ''} ${conta(g)}</div>
+      <div class="t">${CAT_GASTO[g.categoria] || g.categoria}${g.descricao ? ' · ' + esc(g.descricao) : ''} ${conta(g)}${g.imprevisto ? ' <span class="badge b-red">Imprevisto</span>' : ''}</div>
       <div class="m">${fmtData(g.data)}${g.conta === 'pf' ? ' · ' + (g.acerto ? ACERTO_TXT[g.acerto] : 'acerto pendente') : ''}</div></div>
       <div class="r val">${m$(g.valor)}</div></div>`).join('')
     : `<div class="empty">Nenhum gasto lançado.${t.previsto ? ` O orçamento previa <span class="money">${money(t.previsto)}</span> de material.` : ''}</div>`}</div>
@@ -2563,6 +2575,7 @@ function vFinalizar(r){
   <div class="card"><table class="sumtab">
     <tr><td>Recebido</td><td class="money">${money(recebido)}</td></tr>
     <tr><td>Gastos da obra</td><td class="neg money">− ${money(t.gastoReal)}</td></tr>
+    ${t.gastoImprev ? `<tr><td style="color:var(--red);padding-left:14px">dos quais imprevistos</td><td class="money" style="color:var(--red)">${money(t.gastoImprev)}</td></tr>` : ''}
     <tr><td>Repasses</td><td class="neg money">− ${money(t.repasse)}</td></tr>
     <tr class="tot"><td>Vai para o Fullfin</td><td class="money" style="color:${lucro < 0 ? 'var(--red)' : 'var(--green)'}">${money(lucro)}</td></tr>
     <tr><td style="color:var(--text3)">Previsto no orçamento</td><td class="money" style="color:var(--text3)">${money(t.lucroPrev)}</td></tr>
