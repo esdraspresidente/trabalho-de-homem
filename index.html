@@ -434,7 +434,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.9.0';
+const APP_VER = '1.10.0';
 
 /* ═══ Cliente Supabase ═══════════════════════════════════════════════
    Escrito à parte, e não copiado do Diligências, porque o de lá aceita
@@ -615,7 +615,7 @@ const ic = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hid
    Volume pequeno (um negócio, uma pessoa): carrega tudo no login e
    recarrega só a tabela que mudou. Evita consulta a cada tela. */
 const S = {
-  cfg:null, clientes:[], prestadores:[], orcs:[], itens:[], servicos:[], agendas:[], receb:[], vinc:[], gastos:[], transf:[],
+  cfg:null, clientes:[], prestadores:[], orcs:[], itens:[], servicos:[], agendas:[], receb:[], vinc:[], gastos:[], transf:[], creditos:[],
   dil:[], blq:[], dilOk:true,
 };
 const TAB = {
@@ -624,6 +624,7 @@ const TAB = {
   servicos:['tdh_servicos','&order=created_at.desc'], agendas:['tdh_agendas','&order=data.asc,horario_inicio.asc'],
   receb:['tdh_recebimentos','&order=created_at.asc'], vinc:['tdh_servico_prestadores','&order=created_at.asc'],
   gastos:['tdh_gastos','&order=data.asc,created_at.asc'], transf:['tdh_transferencias','&order=data.asc,created_at.asc'],
+  creditos:['tdh_creditos_loja','&order=data.asc,created_at.asc'],
 };
 async function load(...keys){
   await Promise.all(keys.map(async k => { S[k] = await db.sel(TAB[k][0], TAB[k][1]) || []; }));
@@ -693,7 +694,10 @@ function totaisServ(sid){
   // Gasto real lançado substitui o material previsto. Enquanto não houver
   // nenhum, vale a previsão: serviço recém-aprovado não pode aparecer com
   // lucro de 100% só porque a compra ainda não foi feita.
-  const gs = gastosDe(sid), gastoReal = gs.reduce((t,g) => t + num(g.valor), 0), temGasto = gs.length > 0;
+  // Material devolvido com crédito na loja baixa o gasto desta obra (mesma
+  // conta do tdh_finalizar_servico). O crédito em si fica na loja.
+  const devol = S.creditos.filter(c => c.servico_id === sid).reduce((t,c) => t + num(c.valor), 0);
+  const gs = gastosDe(sid), gastoBruto = gs.reduce((t,g) => t + num(g.valor), 0), gastoReal = gastoBruto - devol, temGasto = gs.length > 0;
   // Imprevisto = compra que não estava no escopo orçado (marcada pelo
   // Esdras na voz ou na chave do gasto). Já está dentro de gastoReal: aqui
   // só se separa para mostrar quanto do lucro foi embora com imprevisto.
@@ -703,7 +707,7 @@ function totaisServ(sid){
   // Finalizado: vale o lucro guardado na finalização, que é o que foi
   // para o Fullfin (recebido − gastos − repasses).
   const lucro = s?.finalizado_em ? num(s.lucro_final) : num(s?.valor_cobrado) - (temGasto ? gastoReal : previsto) - repasse;
-  return { repasse, repPago, lancado, recebido, aReceber: lancado - recebido, lucro, lucroPrev, previsto, gastoReal, gastoImprev, temGasto };
+  return { repasse, repPago, lancado, recebido, aReceber: lancado - recebido, lucro, lucroPrev, previsto, gastoReal, gastoBruto, devol, gastoImprev, temGasto };
 }
 const orcEditavel = o => o && (o.status === 'rascunho' || o.status === 'enviado');
 const orcVencido = o => o?.status === 'enviado' && o.emissao && addDias(o.emissao, num(o.validade_dias)) < hoje();
@@ -770,7 +774,7 @@ function onSignedOut(){
 const NAV = [
   ['painel','home','Painel'], ['retornos','phone','Retornos'], ['agenda','cal','Agenda'], ['orcamentos','file','Orçamentos'], ['servicos','wrench','Serviços'],
 ];
-const NAV2 = [['financeiro','money','Financeiro'], ['prestadores','users','Prestadores'], ['clientes','user','Clientes'], ['config','cfg','Configurações']];
+const NAV2 = [['financeiro','money','Financeiro'], ['creditos','case','Créditos em loja'], ['prestadores','users','Prestadores'], ['clientes','user','Clientes'], ['config','cfg','Configurações']];
 function buildNav(){
   $('tabs').innerHTML = NAV.map(([k,i,t]) => `<a href="#/${k}" data-k="${k}">${ic(i)}<span>${t}</span></a>`).join('')
     + `<a href="#/mais" data-k="mais">${ic('more')}<span>Mais</span></a>`;
@@ -791,11 +795,11 @@ function render(){
   if ($('app').classList.contains('hidden')) return;
   const r = route();
   const sec = SECAO[r.page] || r.page;
-  const naMais = ['financeiro','prestadores','clientes','config','mais','cliente'].includes(r.page);
+  const naMais = ['financeiro','creditos','prestadores','clientes','config','mais','cliente'].includes(r.page);
   document.querySelectorAll('#tabs a').forEach(a => a.classList.toggle('on', a.dataset.k === sec || (a.dataset.k === 'mais' && naMais)));
   document.querySelectorAll('#side a').forEach(a => a.classList.toggle('on', a.dataset.k === sec));
   const V = { painel:vPainel, retornos:vRetornos, agenda:vAgenda, orcamentos:vOrcamentos, orc:vOrc, servicos:vServicos, serv:vServ,
-    prestadores:vPrestadores, clientes:vClientes, cliente:vCliente, config:vConfig, mais:vMais, financeiro:vFinanceiro };
+    prestadores:vPrestadores, clientes:vClientes, cliente:vCliente, config:vConfig, mais:vMais, financeiro:vFinanceiro, creditos:vCreditos };
   const fn = V[r.page] || vPainel;
   $('view').innerHTML = `<div class="wrap">${fn(r)}</div>`;
   if (fn.after) fn.after(r);
@@ -1754,12 +1758,14 @@ function vServ(r){
   <div class="sec">Gastos da obra ${fin ? '' : `<button class="lnk" onclick="modalGasto({ sid:'${s.id}' })">+ Gasto</button>`}</div>
   <div class="list">${gs.length ? gs.map(rowGasto).join('')
     : `<div class="empty">Nenhum gasto lançado. Enquanto não lançar, o lucro usa o material previsto (<span class="money">${money(t.previsto)}</span>).</div>`}</div>
+  ${S.creditos.some(c => c.servico_id === s.id) || (!fin && gs.length) ? `<div class="sec">Devolvido com crédito na loja ${fin ? '' : `<button class="lnk" onclick="modalCredito({ sid:'${s.id}' })">+ Devolução</button>`}</div>
+  <div class="list">${S.creditos.filter(c => c.servico_id === s.id).map(rowCredito).join('') || '<div class="empty">Devolveu material e ficou crédito na loja? Lance aqui: sai do gasto desta obra.</div>'}</div>` : ''}
 
   <div class="sec">Resumo</div>
   <div class="card"><table class="sumtab">
     <tr><td>Cobrado do cliente</td><td class="money">${money(s.valor_cobrado)}</td></tr>
     ${t.temGasto
-      ? `<tr><td>Gastos da obra</td><td class="neg money">− ${money(t.gastoReal)}</td></tr>${t.gastoImprev ? `<tr><td style="color:var(--red);padding-left:14px">dos quais imprevistos</td><td class="money" style="color:var(--red)">${money(t.gastoImprev)}</td></tr>` : ''}`
+      ? `<tr><td>Gastos da obra</td><td class="neg money">− ${money(t.gastoReal)}</td></tr>${t.devol ? `<tr><td style="color:var(--text3);padding-left:14px">já descontados ${money(t.devol)} devolvidos em crédito</td><td></td></tr>` : ''}${t.gastoImprev ? `<tr><td style="color:var(--red);padding-left:14px">dos quais imprevistos</td><td class="money" style="color:var(--red)">${money(t.gastoImprev)}</td></tr>` : ''}`
       : `<tr><td>Material previsto</td><td class="neg money">− ${money(t.previsto)}</td></tr>`}
     <tr><td>Repasses</td><td class="neg money">− ${money(t.repasse)}</td></tr>
     <tr class="tot"><td>${fin ? 'Lucro final' : t.temGasto ? 'Seu lucro real' : 'Seu lucro previsto'}</td><td class="money" style="color:${t.lucro < 0 ? 'var(--red)' : 'var(--green)'}">${money(t.lucro)}</td></tr>
@@ -2012,7 +2018,8 @@ const contaPatch = c => c === 'pj' ? { conta:'pj', acerto:null, acerto_em:null }
 // repasse só depois de pago: antes disso o dinheiro não andou.
 const pendPF = {
   receb:   () => S.receb.filter(r => r.conta === 'pf' && r.recebido_em && !r.acerto && servExiste(r.servico_id)),
-  gasto:   () => S.gastos.filter(g => g.conta === 'pf' && !g.acerto),
+  // Gasto pago todo com crédito de loja não saiu do bolso: nada a acertar.
+  gasto:   () => S.gastos.filter(g => g.conta === 'pf' && !g.acerto && pago(g) > 0),
   repasse: () => S.vinc.filter(v => v.conta === 'pf' && v.repasse_status === 'pago' && !v.acerto),
 };
 const servExiste = sid => !!serv(sid);
@@ -2023,12 +2030,96 @@ function pfInfo(kind, x){
   return ` · <button class="badge b-yel" style="border:0;cursor:pointer" onclick="event.stopPropagation();modalAcerto('${kind}','${x.id}')">PF · acertar</button>`;
 }
 
+// ── Créditos em loja ───────────────────────────────────────────────
+// Devolução que virou crédito (tdh_creditos_loja) e gasto pago em parte
+// com crédito (credito_valor). O gasto conta CHEIO na obra; no caixa, no
+// saldo da PJ e no acerto PF conta só o que saiu de fato.
+const pago = g => num(g.valor) - num(g.credito_valor);
+// Mesma normalização do banco (tdh_loja_chave): "Balaróti " = "balaroti".
+const lojaChave = t => String(t || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+function saldosLoja(){
+  const m = {};
+  const pega = (nome) => { const k = lojaChave(nome); if (!m[k]) m[k] = { chave:k, nome:String(nome).trim(), devol:0, uso:0 }; return m[k]; };
+  S.creditos.forEach(c => { const x = pega(c.loja); x.devol += num(c.valor); x.nome = String(c.loja).trim(); });
+  S.gastos.filter(g => num(g.credito_valor) > 0).forEach(g => { pega(g.credito_loja).uso += num(g.credito_valor); });
+  return Object.values(m).map(x => ({ ...x, saldo: Math.round((x.devol - x.uso) * 100) / 100 })).sort((a,b) => b.saldo - a.saldo || a.nome.localeCompare(b.nome));
+}
+const saldoLoja = nome => saldosLoja().find(x => x.chave === lojaChave(nome))?.saldo || 0;
+
+function rowCredito(c){
+  const s = c.servico_id ? serv(c.servico_id) : null;
+  return `<div class="row" onclick="modalCredito({ cid:'${c.id}' })"><div class="main">
+    <div class="t">Devolução · ${esc(c.loja)}${c.descricao ? ' · ' + esc(c.descricao) : ''}</div>
+    <div class="m">${fmtData(c.data)}${s && route().page !== 'serv' ? ' · ' + esc(s.descricao) : ''}${!s ? ' · sem obra' : ''}</div></div>
+    <div class="r val" style="color:var(--green)">+ ${m$(c.valor)}</div></div>`;
+}
+function vCreditos(){
+  const ls = saldosLoja();
+  const usos = S.gastos.filter(g => num(g.credito_valor) > 0);
+  const hist = [...S.creditos.map(c => ({ d:c.data, h:rowCredito(c) })),
+    ...usos.map(g => ({ d:g.data, h:`<div class="row" onclick="modalGasto({ gid:'${g.id}' })"><div class="main">
+      <div class="t">Usado · ${esc(g.credito_loja)}${g.descricao ? ' · ' + esc(g.descricao) : ''}</div>
+      <div class="m">${fmtData(g.data)}${g.servico_id ? ' · ' + esc(serv(g.servico_id)?.descricao || '') : ''} · gasto de ${money(g.valor)}</div></div>
+      <div class="r val" style="color:var(--red)">− ${m$(g.credito_valor)}</div></div>` }))].sort((a,b) => b.d.localeCompare(a.d));
+  return `<a class="back" href="#/mais">${ic('left')} Mais</a>
+  <div class="pg-head"><h2 class="pg">Créditos em loja</h2></div>
+  <p style="color:var(--text3);font-size:13.5px;margin:-6px 0 14px">Material devolvido que virou crédito. A devolução baixa o gasto da obra de onde saiu; quando o crédito é usado, o gasto da obra nova conta cheio, mas no caixa só entra o que você pagou.</p>
+  <div class="list">${ls.length ? ls.map(x => `<div class="row"><div class="main"><div class="t">${esc(x.nome)}</div>
+      <div class="m">devolvido ${money(x.devol)} · usado ${money(x.uso)}</div></div>
+      <div class="r val" style="${x.saldo > 0 ? 'color:var(--green);font-weight:800' : 'color:var(--text3)'}">${m$(x.saldo)}</div></div>`).join('')
+    : '<div class="empty">Nenhum crédito ainda. Quando devolver material e a loja der crédito, lance aqui ou na obra.</div>'}</div>
+  <div class="sec">Movimentos</div>
+  <div class="list">${hist.length ? hist.map(x => x.h).join('') : '<div class="empty">Nada lançado.</div>'}</div>
+  <div style="height:64px"></div>
+  <button class="fab" onclick="modalCredito({})">${ic('plus')} Devolução</button>`;
+}
+// op: { sid } já ligado à obra de origem; { cid } edita; { voz } vem do comando de voz.
+function modalCredito(op = {}){
+  const c = op.cid ? S.creditos.find(x => x.id === op.cid) : null;
+  const pre = !c && op.voz ? op.voz : null, pc = pre?.campos || {};
+  const sid = c ? c.servico_id : (op.sid || pc.servico_id || null);
+  // Obra finalizada fica de fora: a devolução muda o lucro dela, e o banco
+  // recusa (reabra a obra antes).
+  const obras = S.servicos.filter(s => s.id === sid || (!s.finalizado_em && s.status !== 'cancelado'));
+  const lojas = [...new Set([...S.creditos.map(x => String(x.loja).trim()), ...S.gastos.map(g => String(g.credito_loja || '').trim()).filter(Boolean)])];
+  openModal(c ? 'Editar devolução' : 'Devolução com crédito', `${pre ? vozBanner(pre) : ''}
+    <div class="field"><label>Loja</label><input class="in" id="cr-loja" list="cr-lojas" value="${esc(c?.loja || pc.loja || '')}" placeholder="Ex.: Balaroti">
+      <datalist id="cr-lojas">${lojas.map(l => `<option value="${esc(l)}">`).join('')}</datalist></div>
+    <div class="f2"><div class="field"><label>Crédito (R$)</label><input class="in num" id="cr-val" inputmode="numeric" data-money value="${moneyIn(c?.valor || pc.valor)}"></div>
+      <div class="field"><label>Data</label><input class="in" type="date" id="cr-data" value="${c?.data || pc.data || hoje()}"></div></div>
+    <div class="field"><label>Obra de onde saiu o material</label><select class="in" id="cr-obra">
+      ${pre && !sid ? '<option value="__" selected>— escolha a obra —</option>' : ''}<option value="">— sem obra —</option>${obras.map(s => `<option value="${s.id}" ${s.id === sid ? 'selected' : ''}>${esc(s.descricao)}${cliente(s.cliente_id) ? ' · ' + esc(nomeC(cliente(s.cliente_id))) : ''}</option>`).join('')}
+    </select><div class="hint">O valor sai do gasto dessa obra (o material voltou). Obra finalizada precisa ser reaberta.</div></div>
+    <div class="field"><label>O que foi devolvido</label><input class="in" id="cr-desc" value="${esc(c?.descricao || pc.descricao || '')}" placeholder="Ex.: 3 telhas, sobra de cimento"></div>
+    <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarCredito(${c ? `'${c.id}'` : 'null'})">Salvar</button>
+      ${c ? `<button class="btn btn-d" onclick="excluirCredito('${c.id}')">${ic('trash')}</button>` : ''}</div>`);
+  if (pre) vozMarcarVazios(['cr-loja', 'cr-val', 'cr-obra']);
+}
+async function salvarCredito(cid){
+  const loja = fv('cr-loja').trim(); if (!loja) return toast('Coloque a loja.', true);
+  const v = parseMoney(fv('cr-val')); if (!v) return toast('Coloque o valor do crédito.', true);
+  if (fv('cr-obra') === '__') return toast('Escolha a obra (ou "sem obra").', true);
+  // Mesmo nome de loja já usado: evita "Balaroti" e "Balarotti" virarem
+  // dois saldos sem ninguém perceber.
+  const igual = saldosLoja().find(x => x.chave === lojaChave(loja));
+  const row = { loja: igual ? igual.nome : loja, valor:v, data:fv('cr-data') || hoje(), servico_id: fv('cr-obra') || null, descricao: fv('cr-desc').trim() || null };
+  const ok = await act(async () => {
+    if (cid) { const [n] = await db.upd('tdh_creditos_loja', eqId(cid), row); Object.assign(S.creditos.find(x => x.id === cid), n); }
+    else { const [n] = await db.ins('tdh_creditos_loja', row); S.creditos.push(n); }
+    return true; }, 'Crédito lançado.');
+  if (ok) { closeModal(); rerender(); }
+}
+function excluirCredito(cid){ closeModal();
+  confirmar('Excluir devolução', 'Apagar esta devolução? O gasto da obra volta a contar o material, e o crédito some da loja (se já foi usado, o banco não deixa).', 'Excluir', async () => {
+    const ok = await act(async () => { await db.del('tdh_creditos_loja', eqId(cid)); S.creditos = S.creditos.filter(c => c.id !== cid); return true; });
+    if (ok) rerender(); }, true); }
+
 // ── Gastos ─────────────────────────────────────────────────────────
 function rowGasto(g){
   const s = g.servico_id ? serv(g.servico_id) : null;
   return `<div class="row" onclick="modalGasto({ gid:'${g.id}' })"><div class="main">
     <div class="t">${CAT_GASTO[g.categoria] || g.categoria}${g.descricao ? ' · ' + esc(g.descricao) : ''}${g.imprevisto ? ' <span class="badge b-red">Imprevisto</span>' : ''}</div>
-    <div class="m">${fmtData(g.data)}${s && route().page !== 'serv' ? ' · ' + esc(s.descricao) : ''}${pfInfo('gasto', g)}</div></div>
+    <div class="m">${fmtData(g.data)}${s && route().page !== 'serv' ? ' · ' + esc(s.descricao) : ''}${num(g.credito_valor) > 0 ? ` · <span class="badge b-gray">crédito ${esc(g.credito_loja)} ${money(g.credito_valor)}</span>` : ''}${pfInfo('gasto', g)}</div></div>
     <div class="r val">${m$(g.valor)}</div></div>`;
 }
 // op: { sid } abre já ligado à obra; { fixo:true } abre como custo fixo;
@@ -2056,6 +2147,7 @@ function modalGasto(op = {}){
       </select>${op.fixo ? '' : '<div class="hint">Sem obra conta como custo fixo do mês (anúncio, DAS, ferramenta).</div>'}</div>` : ''}
     ${op.fixo ? '' : `<div class="field"><label>Estava previsto no orçamento?</label>${segImprev('gs-imprev', g ? g.imprevisto : pc.imprevisto)}
       <div class="hint">Imprevisto = compra fora do escopo orçado (ex.: lona que não estava no serviço). Não muda o lucro, só mostra quanto saiu com imprevisto.</div></div>`}
+    ${gastoCreditoHtml(g, pc)}
     <div class="field"><label>Saiu de</label>${segConta('gs-conta', g?.conta || pc.conta)}</div>
     ${g?.acerto ? `<div class="hint" style="margin:-6px 0 12px">Acerto: ${ACERTO_TXT[g.acerto]} em ${fmtData(g.acerto_em)}. <button class="lnk" style="border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer;padding:0" onclick="modalAcerto('gasto','${g.id}')">Mudar</button></div>` : ''}
     <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarGasto(${g ? `'${g.id}'` : 'null'}, ${!escolheObra ? `'${sid}'` : 'null'})">Salvar</button>
@@ -2063,13 +2155,41 @@ function modalGasto(op = {}){
   if (pre) {
     // Sem foco no valor: o teclado subiria por cima do que é para conferir.
     // Obra em branco só é marcada se não foi dito "sem obra" (custo fixo).
-    vozMarcarVazios(['gs-val', ...(pc.sem_obra ? [] : ['gs-obra'])]);
+    // Falou de crédito mas a loja não foi achada: a lista de lojas fica em
+    // amarelo para escolher.
+    vozMarcarVazios(['gs-val', ...(pc.sem_obra ? [] : ['gs-obra']), ...(num(pc.credito_valor) > 0 && !pc.credito_loja ? ['gs-cred-loja'] : [])]);
     return;
   }
   setTimeout(() => $('gs-val')?.focus(), 50);
 }
+// Bloco "usou crédito de loja?" do gasto. Só aparece se existe crédito com
+// saldo (ou se este gasto já usa crédito / a voz falou de crédito).
+function gastoCreditoHtml(g, pc){
+  const ls = saldosLoja().filter(x => x.saldo > 0.004);
+  const atual = g && num(g.credito_valor) > 0 ? lojaChave(g.credito_loja) : (pc.credito_loja ? lojaChave(pc.credito_loja) : '');
+  if (!ls.length && !atual) return '';
+  // Editando: o crédito que ESTE gasto já usa volta para o saldo disponível.
+  const disp = x => x.saldo + (g && lojaChave(g.credito_loja) === x.chave ? num(g.credito_valor) : 0);
+  const opts = [...ls]; if (atual && !opts.some(x => x.chave === atual)) { const t = saldosLoja().find(x => x.chave === atual); if (t) opts.push(t); }
+  const val = g ? num(g.credito_valor) : num(pc.credito_valor);
+  return `<div class="field"><label>Usou crédito de loja?</label><select class="in" id="gs-cred-loja" onchange="$('gs-cred-box').style.display=this.value?'':'none'">
+      <option value="">Não</option>${opts.map(x => `<option value="${esc(x.nome)}" ${x.chave === atual ? 'selected' : ''}>${esc(x.nome)} · saldo ${money(disp(x))}</option>`).join('')}</select>
+    <div id="gs-cred-box" style="${atual || (!g && num(pc.credito_valor) > 0) ? '' : 'display:none'};margin-top:8px"><input class="in num" id="gs-cred-val" inputmode="numeric" data-money value="${moneyIn(val)}" placeholder="Quanto do crédito usou">
+      <div class="hint">O gasto conta cheio na obra; no caixa entra só o que você pagou (valor − crédito).</div></div></div>`;
+}
 async function salvarGasto(gid, sidPreso){
   const v = parseMoney(fv('gs-val')); if (!v) return toast('Coloque o valor.', true);
+  // Crédito de loja: confere aqui para dar mensagem clara (o banco também
+  // barra saldo negativo).
+  const credLoja = $('gs-cred-loja') ? fv('gs-cred-loja') : '';
+  const credVal = credLoja ? parseMoney(fv('gs-cred-val')) : 0;
+  if (credLoja && !credVal) return toast('Coloque quanto do crédito usou (ou marque "Não").', true);
+  if (credVal > v + 0.004) return toast('O crédito usado não pode passar do valor do gasto.', true);
+  if (credLoja) {
+    const g0 = gid ? S.gastos.find(x => x.id === gid) : null;
+    const disp = saldoLoja(credLoja) + (g0 && lojaChave(g0.credito_loja) === lojaChave(credLoja) ? num(g0.credito_valor) : 0);
+    if (credVal > disp + 0.004) return toast(`Crédito insuficiente: ${credLoja} tem ${money(disp)}.`, true);
+  }
   const cat = $('gs-cat').querySelector('.chip.on')?.dataset.v; if (!cat) return toast('Escolha a categoria.', true);
   const data = fv('gs-data'); if (!data) return toast('Escolha a data.', true);
   // "__" só existe no gasto aberto pela voz sem obra definida: sem esta
@@ -2079,13 +2199,17 @@ async function salvarGasto(gid, sidPreso){
     servico_id: sidPreso || ($('gs-obra') ? fv('gs-obra') || null : null), ...contaPatch(segVal('gs-conta')) };
   // Custo fixo (sem obra) não tem orçamento para fugir: nunca é imprevisto.
   row.imprevisto = !!row.servico_id && $('gs-imprev')?.querySelector('button.on')?.dataset.v === '1';
+  row.credito_loja = credLoja ? (saldosLoja().find(x => x.chave === lojaChave(credLoja))?.nome || credLoja) : null;
+  row.credito_valor = credLoja ? credVal : 0;
+  // Pago todo com crédito: não saiu de conta nenhuma, então não há acerto PF.
+  if (row.credito_valor >= v - 0.004) Object.assign(row, contaPatch('pj'));
   let novo = null;
   const ok = await act(async () => {
     if (gid) { const [n] = await db.upd('tdh_gastos', eqId(gid), row); Object.assign(S.gastos.find(x => x.id === gid), n); }
     else { [novo] = await db.ins('tdh_gastos', row); S.gastos.push(novo); }
     await load('transf'); return true; }, 'Gasto lançado.');
   if (!ok) return;
-  if (novo?.conta === 'pf') modalAcerto('gasto', novo.id); else { closeModal(); rerender(); }
+  if (novo?.conta === 'pf' && pago(novo) > 0) modalAcerto('gasto', novo.id); else { closeModal(); rerender(); }
 }
 function excluirGasto(gid){ closeModal();
   confirmar('Excluir gasto', 'Apagar este gasto?', 'Excluir', async () => {
@@ -2246,6 +2370,7 @@ async function vozAplicar(j){
     _assist.fio.push({ p:j.transcricao, r:'Abri a tela para você confirmar.', itens:[] });
   }
   if (j.acao === 'novo_gasto') return modalGasto({ voz:j });
+  if (j.acao === 'devolucao_credito') return modalCredito({ voz:j });
   // Contato novo: mesmos padrões do botão "Novo contato" dos Retornos
   // (conversando, retorno em 2 dias), a não ser que a data tenha sido dita.
   // O aviso de número repetido da tela roda igual.
@@ -2372,6 +2497,8 @@ function vozSituacao(){
   L.push(`\nDILIGÊNCIAS DO ESDRAS, PRÓXIMOS 7 DIAS (${S.dilOk ? dil.length : 'não consegui ler'}):`);
   dil.forEach(d => L.push(`${fmtDataLonga(d.data)} ${d.horario ? hhmm(d.horario) : ''} — diligência${d.local ? ' em ' + d.local : ''}`));
 
+  const cred = saldosLoja().filter(x => x.devol || x.uso);
+  L.push(`\nCRÉDITOS EM LOJA (material devolvido que virou crédito; saldo = devolvido − usado):`, ...cred.map(x => `${x.nome}: saldo ${money(x.saldo)} (devolvido ${money(x.devol)}, usado ${money(x.uso)})`));
   L.push(`\nLANÇAMENTOS PELA CONTA PF ESPERANDO ACERTO: ${totPendPF()}`);
   L.push(`\nTODOS OS CLIENTES (código — nome — status):`, ...S.clientes.map(c => `${cliCod[c.id]} ${nomeC(c)} — ${ST_CLI[c.status]?.[0] || c.status}${c.nao_contatar ? ' — não quer contato' : ''}`));
   return { texto:L.join('\n'), mapa };
@@ -2463,7 +2590,7 @@ function assistOuvir(el){
 const ACERTO = {
   receb:   { tab:'tdh_recebimentos', lista:() => S.receb, valor:x => x.valor, desc:x => `${esc(x.descricao)} · ${esc(serv(x.servico_id)?.descricao || '')}`,
              pergunta:'Caiu na sua conta. O que você fez com ele?', ops:[['retirada','Ficou comigo','Conta como lucro que você já retirou.'], ['devolvido','Passei para a PJ','Gera a transferência para a empresa.']] },
-  gasto:   { tab:'tdh_gastos', lista:() => S.gastos, valor:x => x.valor, desc:x => `${CAT_GASTO[x.categoria]}${x.descricao ? ' · ' + esc(x.descricao) : ''}`,
+  gasto:   { tab:'tdh_gastos', lista:() => S.gastos, valor:x => pago(x), desc:x => `${CAT_GASTO[x.categoria]}${x.descricao ? ' · ' + esc(x.descricao) : ''}`,
              pergunta:'Saiu do seu bolso. Como fica?', ops:[['reembolsado','A PJ me reembolsou','Gera a transferência para você.'], ['aporte','Fica como aporte meu','Dinheiro que você pôs na empresa.']] },
   repasse: { tab:'tdh_servico_prestadores', lista:() => S.vinc, valor:x => x.valor_repasse, desc:x => `Repasse · ${esc(prestador(x.prestador_id)?.nome || '')} · ${esc(serv(x.servico_id)?.descricao || '')}`,
              pergunta:'Saiu do seu bolso. Como fica?', ops:[['reembolsado','A PJ me reembolsou','Gera a transferência para você.'], ['aporte','Fica como aporte meu','Dinheiro que você pôs na empresa.']] },
@@ -2622,17 +2749,18 @@ function finMes(mes){
   const transf = S.transf.filter(t => no(t.data));
   const soma = (a, f) => a.reduce((t,x) => t + num(f(x)), 0);
   const fat = soma(receb, r => r.valor);
-  const gObra = soma(gastos.filter(g => g.servico_id), g => g.valor);
-  const gFixo = soma(gastos.filter(g => !g.servico_id), g => g.valor);
+  // Caixa: parte paga com crédito de loja não saiu da conta.
+  const gObra = soma(gastos.filter(g => g.servico_id), pago);
+  const gFixo = soma(gastos.filter(g => !g.servico_id), pago);
   const rep = soma(reps, v => v.valor_repasse);
   // Retirada = lucro que foi para você: transferência PJ → você que não
   // seja reembolso, mais recebimento da PF que ficou com você.
   const retirado = soma(transf.filter(t => t.sentido === 'para_voce' && !t.gasto_id && !t.repasse_id), t => t.valor)
     + soma(receb.filter(r => r.conta === 'pf' && r.acerto === 'retirada'), r => r.valor);
   const aporte = soma(transf.filter(t => t.sentido === 'para_empresa' && !t.recebimento_id), t => t.valor)
-    + soma(gastos.filter(g => g.conta === 'pf' && g.acerto === 'aporte'), g => g.valor)
+    + soma(gastos.filter(g => g.conta === 'pf' && g.acerto === 'aporte'), pago)
     + soma(reps.filter(v => v.conta === 'pf' && v.acerto === 'aporte'), v => v.valor_repasse);
-  const porCat = {}; gastos.forEach(g => porCat[g.categoria] = (porCat[g.categoria] || 0) + num(g.valor));
+  const porCat = {}; gastos.forEach(g => porCat[g.categoria] = (porCat[g.categoria] || 0) + pago(g));
   return { fat, gObra, gFixo, rep, lucro: fat - gObra - gFixo - rep, retirado, aporte, porCat,
     fixos: gastos.filter(g => !g.servico_id), transf, nReceb: receb.length };
 }
@@ -2642,7 +2770,7 @@ function finMes(mes){
 function saldoPJ(){
   const soma = (a, f) => a.reduce((t,x) => t + num(f(x)), 0);
   return soma(S.receb.filter(r => r.conta === 'pj' && r.recebido_em && servExiste(r.servico_id)), r => r.valor)
-    - soma(S.gastos.filter(g => g.conta === 'pj'), g => g.valor)
+    - soma(S.gastos.filter(g => g.conta === 'pj'), pago)
     - soma(S.vinc.filter(v => v.conta === 'pj' && v.repasse_status === 'pago'), v => v.valor_repasse)
     + soma(S.transf.filter(t => t.sentido === 'para_empresa'), t => t.valor)
     - soma(S.transf.filter(t => t.sentido === 'para_voce'), t => t.valor);
