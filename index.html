@@ -434,16 +434,27 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.10.0';
+const APP_VER = '1.11.0';
+
+/* ═══ Modo invisível (Concierge) — 11/11/2026 ═════════════════════════
+   O Concierge abre este app escondido (iframe, ?situacao=1) só para montar
+   o mesmo resumo do assistente (vozSituacao) e responder pergunta falada
+   sem abrir o app. Nesse modo o app NÃO usa nem renova o login guardado
+   (tdh_sess): usa só o passe que o Concierge manda, em memória. Motivo:
+   renovar a mesma chave em dois lugares faz o Supabase derrubar a sessão,
+   e o app aberto de verdade cairia. Também não desenha tela, não sai da
+   conta e não grava nada. */
+const MODO_SIT = (() => { try { return window.parent !== window && new URLSearchParams(location.search).get('situacao') === '1'; } catch(e) { return false; } })();
 
 /* ═══ Cliente Supabase ═══════════════════════════════════════════════
    Escrito à parte, e não copiado do Diligências, porque o de lá aceita
    um filtro só por consulta, grava só a primeira linha de um lote e não
    renova o login: depois de 1 hora a sessão cai e pede senha de novo. */
 let sess = null;
-try { sess = JSON.parse(localStorage.getItem('tdh_sess') || 'null'); } catch(e) { sess = null; }
+if (!MODO_SIT) { try { sess = JSON.parse(localStorage.getItem('tdh_sess') || 'null'); } catch(e) { sess = null; } }
 
-function saveSess(s){ sess = s; try { s ? localStorage.setItem('tdh_sess', JSON.stringify(s)) : localStorage.removeItem('tdh_sess'); } catch(e){} }
+// No modo invisível a sessão fica só em memória (ver MODO_SIT).
+function saveSess(s){ sess = s; if (MODO_SIT) return; try { s ? localStorage.setItem('tdh_sess', JSON.stringify(s)) : localStorage.removeItem('tdh_sess'); } catch(e){} }
 
 let refreshing = null;
 async function refreshSess(){
@@ -759,6 +770,8 @@ async function start(){
   } finally { loading(false); }
 }
 async function signOut(){
+  // Modo invisível: sair daqui encerraria o login do Concierge.
+  if (MODO_SIT) return;
   try { if (sess?.access_token) await fetch(SB_URL + '/auth/v1/logout', { method:'POST', headers:{ apikey:SB_KEY, Authorization:'Bearer ' + sess.access_token } }); } catch(e){}
   saveSess(null); onSignedOut();
 }
@@ -3264,9 +3277,47 @@ async function salvarConfig(){
   await act(async () => { const [n] = await db.upd('tdh_config', 'id=eq.1', row); S.cfg = n; }, 'Padrões salvos.');
 }
 
+/* ═══ Modo invisível: conversa com o Concierge ═══════════════════════
+   Mensagens só da janela de cima e do mesmo endereço (github.io do
+   Esdras). 'token' → carrega os dados; 'contexto' → devolve o resumo do
+   assistente. Dados com mais de 60 s são recarregados antes de responder,
+   para a resposta não sair velha com o Concierge aberto há tempo. */
+function sitIniciar(){
+  let carregado = 0, carregando = null;
+  const avisa = m => parent.postMessage({ cc:1, app:'tdh', ...m }, location.origin);
+  const carregar = () => carregando || (carregando = (async () => {
+    const cfg = await loadCfg();
+    // Config vazia = este login não tem acesso ao TDH (mesma regra do start).
+    if (!cfg) throw new Error('Este login não tem acesso ao Trabalho de Homem.');
+    await Promise.all([load(...Object.keys(TAB)), loadDiligencias()]);
+    carregado = Date.now();
+  })().finally(() => { carregando = null; }));
+  window.addEventListener('message', async e => {
+    if (e.source !== parent || e.origin !== location.origin || !e.data?.cc) return;
+    const d = e.data;
+    try {
+      if (d.tipo === 'token') {
+        sess = { access_token:d.token, expires_at:d.expira, user:{ id:d.user_id } };
+        await carregar(); avisa({ tipo:'pronto' });
+      } else if (d.tipo === 'contexto') {
+        // O Concierge manda o passe renovado junto: este modo nunca renova.
+        if (d.token) sess = { access_token:d.token, expires_at:d.expira, user:{ id:d.user_id } };
+        if (!sess?.access_token) throw new Error('sem login');
+        if (Date.now() - carregado > 60000) await carregar();
+        const sit = vozSituacao();
+        avisa({ tipo:'contexto', id:d.id, situacao:sit.texto, mapa:sit.mapa });
+      }
+    } catch(err) { avisa({ tipo:'erro', id:d.id, erro:err?.message || 'falha ao carregar' }); }
+  });
+  avisa({ tipo:'aberto' });
+}
+
 /* ═══ Início ═════════════════════════════════════════════════════════ */
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
-if (sess?.access_token) start(); else $('login').classList.remove('hidden');
+if (MODO_SIT) sitIniciar();
+else {
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if (sess?.access_token) start(); else $('login').classList.remove('hidden');
+}
 </script>
 </body>
 </html>
