@@ -434,7 +434,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.11.1';
+const APP_VER = '1.12.0';
 
 /* ═══ Modo invisível (Concierge) — 11/11/2026 ═════════════════════════
    O Concierge abre este app escondido (iframe, ?situacao=1) só para montar
@@ -1674,51 +1674,95 @@ function rowServ(s){
     <div class="r val">${m$(s.valor_cobrado)}</div></a>`;
 }
 
-function modalNovoServico(data){
-  openModal('Novo serviço', `
+// pre: comando de voz ("serviço de encanamento pro Gabriel, 516, já fiz e
+// ele já pagou"). Abre esta mesma tela preenchida; quem grava é o botão.
+//
+// "Já feito e pago" (12/11/2026): serviço que ficou sem orçamento e já foi
+// executado e recebido. Nasce como executado, com o recebimento já com
+// baixa, e fica em "a finalizar": a finalização continua sendo o passo de
+// conferir gastos antes de travar o lucro e mandar para o Fullfin.
+// Não grava dia na agenda: o trigger da agenda bloquearia o Diligências
+// num dia que já passou, sem motivo.
+function modalNovoServico(data, pre){
+  const pc = pre?.campos || {}, feito = !!pc.executado;
+  const forma = pc.forma || FORMAS[0];
+  openModal('Novo serviço', `${pre ? vozBanner(pre) : ''}
     <p style="color:var(--text3);font-size:13px;margin:-6px 0 12px">Para serviço rápido, sem orçamento. Se tiver orçamento, aprove por lá que o serviço nasce sozinho.</p>
-    <div class="field"><label>O que vai ser feito</label><input class="in" id="ns-desc" placeholder="Ex.: Troca de chuveiro"></div>
+    <div class="field"><label>O que vai ser feito</label><input class="in" id="ns-desc" placeholder="Ex.: Troca de chuveiro" value="${esc(pc.descricao || '')}"></div>
     <div class="field"><label>Cliente</label><div style="display:flex;gap:8px"><select class="in" id="ns-cli" onchange="nsCli()">
-      <option value="">— sem cadastro —</option>${S.clientes.map(c => `<option value="${c.id}">${esc(nomeC(c))}</option>`).join('')}</select>
+      <option value="">— sem cadastro —</option>${S.clientes.map(c => `<option value="${c.id}" ${c.id === pc.cliente_id ? 'selected' : ''}>${esc(nomeC(c))}</option>`).join('')}</select>
       <button class="btn btn-s btn-sm" onclick="nsNovoCliente()">${ic('plus')}</button></div></div>
     <div class="field"><label>Endereço</label><input class="in" id="ns-end"></div>
     <div class="f2"><div class="field"><label>Bairro</label><input class="in" id="ns-bai"></div><div class="field"><label>Cidade</label><input class="in" id="ns-cid"></div></div>
-    <div class="f2"><div class="field"><label>Valor cobrado (R$)</label><input class="in num" id="ns-val" inputmode="numeric" data-money></div>
+    <div class="f2"><div class="field"><label>Valor cobrado (R$)</label><input class="in num" id="ns-val" inputmode="numeric" data-money value="${pc.valor ? moneyIn(pc.valor) : ''}"></div>
       <div class="field"><label>Material previsto (R$)</label><input class="in num" id="ns-mat" inputmode="numeric" data-money></div></div>
-    <div class="f3"><div class="field"><label>Data</label><input class="in" type="date" id="ns-data" value="${data || ''}"></div>
-      <div class="field"><label>Início</label><input class="in" type="time" id="ns-ini"></div><div class="field"><label>Fim</label><input class="in" type="time" id="ns-fim"></div></div>
+    <label style="display:flex;gap:10px;align-items:center;margin:4px 0 12px;font-weight:700;cursor:pointer">
+      <input type="checkbox" id="ns-feito" ${feito ? 'checked' : ''} onchange="nsFeito()" style="width:20px;height:20px"> Já feito e pago</label>
+    <div id="ns-agenda" class="f3"><div class="field"><label>Data</label><input class="in" type="date" id="ns-data" value="${data || pc.data || ''}"></div>
+      <div class="field"><label>Início</label><input class="in" type="time" id="ns-ini" value="${pc.hora_inicio || ''}"></div><div class="field"><label>Fim</label><input class="in" type="time" id="ns-fim" value="${pc.hora_fim || ''}"></div></div>
+    <div id="ns-pago">
+      <div class="field"><label>Recebido em</label><input class="in" type="date" id="ns-rec" value="${(feito && pc.data) || hoje()}"></div>
+      <div class="field"><label>Forma</label><div class="chips" id="ns-forma">${FORMAS.map(f => `<button class="chip ${f === forma ? 'on' : ''}" onclick="chipUnico(this)">${f}</button>`).join('')}</div></div>
+      <div class="field"><label>Caiu em</label>${segConta('ns-conta', pc.conta)}</div></div>
     <div id="ns-warn"></div>
-    <button class="btn btn-p btn-w" onclick="criarServico()">Criar serviço</button>`);
+    <button class="btn btn-p btn-w" id="ns-ok" onclick="criarServico()">Criar serviço</button>`);
   ['ns-data','ns-ini','ns-fim'].forEach(i => $(i).addEventListener('change', () => { $('ns-warn').innerHTML = warnHtml(conflitos(fv('ns-data'), fv('ns-ini'), fv('ns-fim'))); }));
   if (data) $('ns-warn').innerHTML = warnHtml(conflitos(data, '', ''));
+  nsFeito();
+  if (pc.cliente_id) nsCli();
+  if (pre) vozMarcarVazios(['ns-desc','ns-cli','ns-val']);
+}
+function nsFeito(){
+  const f = $('ns-feito').checked;
+  $('ns-agenda').style.display = f ? 'none' : '';
+  $('ns-pago').style.display = f ? '' : 'none';
+  $('ns-ok').innerHTML = f ? `${ic('check')} Criar como feito e pago` : 'Criar serviço';
+  if (f) $('ns-warn').innerHTML = '';
 }
 // Só existe um modal por vez: guarda o formulário, cadastra o cliente e
 // volta com tudo preenchido.
-const NS_CAMPOS = ['ns-desc','ns-end','ns-bai','ns-cid','ns-val','ns-mat','ns-data','ns-ini','ns-fim'];
+const NS_CAMPOS = ['ns-desc','ns-end','ns-bai','ns-cid','ns-val','ns-mat','ns-data','ns-ini','ns-fim','ns-rec'];
 function nsNovoCliente(){
-  const rasc = {}; NS_CAMPOS.forEach(k => rasc[k] = fv(k));
+  const rasc = {}; NS_CAMPOS.forEach(k => rasc[k] = fv(k)); const feito = $('ns-feito').checked;
   modalCliente(null, cid => { modalNovoServico(rasc['ns-data']); NS_CAMPOS.forEach(k => { if ($(k)) $(k).value = rasc[k]; });
-    $('ns-cli').value = cid; nsCli(); });
+    $('ns-feito').checked = feito; nsFeito(); $('ns-cli').value = cid; nsCli(); });
 }
 function nsCli(){ const c = cliente(fv('ns-cli')); if (!c) return;
   if (!fv('ns-end')) $('ns-end').value = c.endereco || ''; if (!fv('ns-bai')) $('ns-bai').value = c.bairro || ''; if (!fv('ns-cid')) $('ns-cid').value = c.cidade || ''; }
 const warnHtml = av => av.map(a => `<div class="warn">${ic('alert')}<span>${a}</span></div>`).join('');
 async function criarServico(){
   const desc = fv('ns-desc').trim(); if (!desc) return toast('Diga o que vai ser feito.', true);
-  const ini = fv('ns-ini'), fim = fv('ns-fim'), data = fv('ns-data');
+  const feito = $('ns-feito').checked;
+  const ini = feito ? '' : fv('ns-ini'), fim = feito ? '' : fv('ns-fim'), data = feito ? '' : fv('ns-data');
   if (ini && fim && fim <= ini) return toast('O fim precisa ser depois do início.', true);
   const val = parseMoney(fv('ns-val'));
+  // Feito e pago sem valor deixaria o serviço sem nada recebido e o lucro
+  // sairia negativo na finalização.
+  const rec = feito ? fv('ns-rec') : '';
+  if (feito && !(val > 0)) return toast('Diga quanto o cliente pagou.', true);
+  if (feito && !rec) return toast('Escolha a data em que recebeu.', true);
+  const conta = feito ? segVal('ns-conta') : null;
+  let rid = null;
   const sid = await act(async () => {
     const [s] = await db.ins('tdh_servicos', { descricao:desc, cliente_id:fv('ns-cli') || null, endereco:fv('ns-end').trim() || null,
       bairro:fv('ns-bai').trim() || null, cidade:fv('ns-cid').trim() || null, valor_cobrado:val, custo_material:parseMoney(fv('ns-mat')),
-      status: data ? 'agendado' : 'a_agendar' });
+      status: feito ? 'executado' : data ? 'agendado' : 'a_agendar' });
     S.servicos.unshift(s);
-    if (val > 0) S.receb.push(...await db.ins('tdh_recebimentos', { servico_id:s.id, descricao:'Pagamento', valor:val, previsao:data || null }));
+    if (val > 0) {
+      const base = { servico_id:s.id, descricao:'Pagamento', valor:val, previsao:(feito ? rec : data) || null };
+      const [r] = await db.ins('tdh_recebimentos', feito ? { ...base, recebido_em:rec, forma_pagamento:chipSel('ns-forma'), ...contaPatch(conta) } : base);
+      S.receb.push(r); rid = r.id;
+    }
     // O trigger do banco cria o bloqueio no Diligências ao gravar o dia.
     if (data) S.agendas.push(...await db.ins('tdh_agendas', { servico_id:s.id, data, horario_inicio:ini || null, horario_fim:fim || null }));
     return s.id;
-  }, 'Serviço criado.');
-  if (sid) { closeModal(); go('#/serv/' + sid); }
+  }, feito ? 'Serviço criado como feito e pago.' : 'Serviço criado.');
+  if (!sid) return;
+  // Caiu na PF: mesmo caminho do "Recebi" — já pergunta o acerto.
+  // pushState em vez de go(): a troca de hash fecha o modal aberto
+  // (listener do hashchange), e o acerto sumiria logo que aparece.
+  if (feito && conta === 'pf' && rid) { closeModal(); history.pushState(null, '', '#/serv/' + sid); render(); return modalAcerto('receb', rid); }
+  closeModal(); go('#/serv/' + sid);
 }
 
 function vServ(r){
@@ -2390,6 +2434,7 @@ async function vozAplicar(j){
   }
   if (j.acao === 'novo_gasto') return modalGasto({ voz:j });
   if (j.acao === 'devolucao_credito') return modalCredito({ voz:j });
+  if (j.acao === 'novo_servico') return modalNovoServico(null, j);
   // Contato novo: mesmos padrões do botão "Novo contato" dos Retornos
   // (conversando, retorno em 2 dias), a não ser que a data tenha sido dita.
   // O aviso de número repetido da tela roda igual.
@@ -2438,7 +2483,7 @@ function vozNaoEntendi(transcricao, duvidas){
   openModal('Não entendi o comando', `
     ${transcricao ? `<div style="font-size:14px;margin-bottom:10px"><b>Você disse:</b> “${esc(transcricao)}”</div>` : ''}
     ${d ? `<ul style="margin:0 0 12px 18px;padding:0;font-size:13px;color:var(--text2)">${d}</ul>` : ''}
-    <div class="hint" style="font-size:13px;color:var(--text3);margin-bottom:14px">Para perguntar (“o que está atrasado?”), use o balão no alto da tela. Exemplos de comando: “gastei 89,50 no Balaroti na obra da Setup” · “a Setup aprovou o orçamento” · “recebi 300 da Setup no pix” · “paguei o João da obra da Setup” · “marca a Setup terça às 9” · “anota um contato, Carlos, 41 99876 5432, quer prateleira” · “custo fixo, 60 reais de anúncio no Instagram”.</div>
+    <div class="hint" style="font-size:13px;color:var(--text3);margin-bottom:14px">Para perguntar (“o que está atrasado?”), use o balão no alto da tela. Exemplos de comando: “gastei 89,50 no Balaroti na obra da Setup” · “a Setup aprovou o orçamento” · “recebi 300 da Setup no pix” · “paguei o João da obra da Setup” · “marca a Setup terça às 9” · “serviço de encanamento pro Gabriel, 516, já fiz e ele pagou” · “anota um contato, Carlos, 41 99876 5432, quer prateleira” · “custo fixo, 60 reais de anúncio no Instagram”.</div>
     <div class="btns"><button class="btn btn-s" style="flex:1" onclick="closeModal();setTimeout(vozToggle,250)">Falar de novo</button>
       <button class="btn btn-p" style="flex:1" onclick="closeModal();modalGasto({})">Lançar à mão</button></div>`);
 }
