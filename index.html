@@ -434,7 +434,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.11.0';
+const APP_VER = '1.11.1';
 
 /* ═══ Modo invisível (Concierge) — 11/11/2026 ═════════════════════════
    O Concierge abre este app escondido (iframe, ?situacao=1) só para montar
@@ -1374,7 +1374,13 @@ function impMontar(d){
       row.tempo_estimado_min = impTempo(x.tempo_estimado_min ?? x.tempo);
       row.margem_material_pct = x.margem_material_pct != null ? impNum(x.margem_material_pct) : num(cfg.margem_material_pct ?? 15);
       row.preco_cliente = x.preco_cliente != null && x.preco_cliente !== '' ? impNum(x.preco_cliente) : sugerido(row);
-    } else { row.margem_material_pct = 0; row.preco_cliente = 0; }
+    } else {
+      // Custo interno não tem descrição nem tempo, mas a linha precisa ter as
+      // MESMAS chaves dos serviços: o Supabase grava todos os itens num insert
+      // só e recusa ("All object keys must match") se uma linha tiver menos campos.
+      row.descricao_cliente = null; row.tempo_estimado_min = null;
+      row.margem_material_pct = 0; row.preco_cliente = 0;
+    }
     return row;
   });
   if (!its.some(i => i.tipo === 'servico')) erros.push('Precisa de pelo menos um item de serviço.');
