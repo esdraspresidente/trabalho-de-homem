@@ -360,12 +360,21 @@ table.pdf-t .ds{color:#5A6169;font-size:12px;margin-top:2px;line-height:1.4}
   font-weight:800;font-size:120px;color:rgba(178,58,58,.12);letter-spacing:8px;pointer-events:none;white-space:nowrap}
 @media print{
   @page{size:A4;margin:0}
+  /* Chrome/Edge não imprimem fundos por padrão: sem isto somem a faixa
+     laranja, o cabeçalho da tabela, a caixa do total e os marcadores dos
+     títulos (o espaço do marcador fica e o título parece torto). */
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  html,body{background:#fff!important;margin:0;padding:0}
   body>*:not(#pdf-wrap){display:none!important}
   #pdf-wrap{position:static;background:#fff;display:block}
   #pdf-bar{display:none}
   #pdf-scroll{overflow:visible;padding:0}
-  #pdf-scale{transform:none!important;width:auto!important;height:auto!important}
-  .pdf-page{margin:0;page-break-after:always;break-after:page}
+  /* ajustaEscalaPdf() põe margin-left inline para centralizar na tela; no PC
+     isso dá centenas de px, a folha passa da largura do A4 e o navegador
+     encolhe tudo (conteúdo à direita, rodapé no meio da página). */
+  #pdf-scale{transform:none!important;width:auto!important;height:auto!important;margin:0!important}
+  /* 1123px é 297,1mm: a sobra mínima jogava um pedaço para folha extra. */
+  .pdf-page{width:210mm;height:297mm;margin:0;page-break-after:always;break-after:page}
   .pdf-page:last-child{page-break-after:auto;break-after:auto}
 }
 </style>
@@ -434,7 +443,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.12.0';
+const APP_VER = '1.12.1';
 
 /* ═══ Modo invisível (Concierge) — 11/11/2026 ═════════════════════════
    O Concierge abre este app escondido (iframe, ?situacao=1) só para montar
