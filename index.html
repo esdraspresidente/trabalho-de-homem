@@ -644,7 +644,7 @@ const ic = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hid
    recarrega só a tabela que mudou. Evita consulta a cada tela. */
 const S = {
   cfg:null, clientes:[], prestadores:[], orcs:[], itens:[], servicos:[], agendas:[], receb:[], vinc:[], gastos:[], transf:[], creditos:[],
-  dil:[], blq:[], dilOk:true,
+  dil:[], blq:[], dilOk:true, carteiras:[],
 };
 const TAB = {
   clientes:['tdh_clientes','&order=nome.asc.nullslast'], prestadores:['tdh_prestadores','&order=nome.asc'],
@@ -656,6 +656,14 @@ const TAB = {
 };
 async function load(...keys){
   await Promise.all(keys.map(async k => { S[k] = await db.sel(TAB[k][0], TAB[k][1]) || []; }));
+}
+// Contas do Fullfin que o TdH usa (fin_carteiras.tdh_uso = pj/pf). É a
+// mesma conta nos dois apps: o que for lançado aqui chega no Fullfin já com
+// a conta certa, e ele só aprova (decisão do Esdras, 14/11/2026).
+// Falha aqui não trava o app: volta o seletor antigo PJ/PF.
+async function loadCarteiras(){
+  try { S.carteiras = await db.cols('fin_carteiras', 'id,nome,tdh_uso', '&tdh_uso=not.is.null&ativo=eq.true&order=tdh_uso.asc,nome.asc') || []; }
+  catch(e) { console.warn('carteiras', e); S.carteiras = []; }
 }
 async function loadCfg(){ const r = await db.sel('tdh_config', '&id=eq.1'); S.cfg = r?.[0] || null; return S.cfg; }
 
@@ -793,7 +801,7 @@ async function start(){
     const cfg = await loadCfg();
     if (!cfg) { await signOut(); const err = $('login-err');
       err.textContent = 'Este login não tem acesso ao Trabalho de Homem.'; err.classList.remove('hidden'); return; }
-    await Promise.all([load(...Object.keys(TAB)), loadDiligencias()]);
+    await Promise.all([load(...Object.keys(TAB)), loadDiligencias(), loadCarteiras()]);
     $('login').classList.add('hidden'); $('app').classList.remove('hidden');
     buildNav();
     if (!location.hash || location.hash === '#') location.replace('#/painel'); else render();
@@ -1858,7 +1866,7 @@ async function criarServico(){
   // Caiu na PF: mesmo caminho do "Recebi" — já pergunta o acerto.
   // pushState em vez de go(): a troca de hash fecha o modal aberto
   // (listener do hashchange), e o acerto sumiria logo que aparece.
-  if (feito && conta === 'pf' && rid) { closeModal(); history.pushState(null, '', '#/serv/' + sid); render(); return modalAcerto('receb', rid); }
+  if (feito && cartTipo(conta) === 'pf' && rid) { closeModal(); history.pushState(null, '', '#/serv/' + sid); render(); return modalAcerto('receb', rid); }
   closeModal(); go('#/serv/' + sid);
 }
 
@@ -2034,7 +2042,7 @@ function modalReceb(sid, rid, pre){
     <div class="f2"><div class="field"><label>Previsão</label><input class="in" type="date" id="rc-prev" value="${x?.previsao || ''}"></div>
       <div class="field"><label>Recebido em</label><input class="in" type="date" id="rc-rec" value="${(pre && pc.data) || x?.recebido_em || ''}"></div></div>
     <div class="field"><label>Forma</label><div class="chips" id="rc-forma">${FORMAS.map(f => `<button class="chip ${(pc.forma || x?.forma_pagamento) === f ? 'on' : ''}" onclick="chipUnico(this)">${f}</button>`).join('')}</div></div>
-    <div class="field"><label>Caiu em</label>${segConta('rc-conta', pre ? pc.conta : x?.conta)}</div>
+    <div class="field"><label>Caiu em</label>${segConta('rc-conta', pre ? pc.conta : (x?.carteira_id || x?.conta))}</div>
     <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarReceb('${sid}', ${x ? `'${x.id}'` : 'null'})">Salvar</button>
       ${x ? `<button class="btn btn-d" onclick="excluirReceb('${x.id}')">${ic('trash')}</button>` : ''}</div>`);
   if (pre) vozMarcarVazios(['rc-val']);
@@ -2061,7 +2069,7 @@ function modalBaixa(rid, pre){
   openModal('Recebi', `${pre ? vozBanner(pre) : ''}<p style="margin:-4px 0 12px"><b>${esc(x.descricao)}</b> · <span class="money">${money(x.valor)}</span>${sv ? `<br><span style="color:var(--text2);font-size:13.5px">${esc(sv.descricao)}${cliente(sv.cliente_id) ? ' · ' + esc(nomeC(cliente(sv.cliente_id))) : ''}</span>` : ''}</p>
     <div class="field"><label>Data</label><input class="in" type="date" id="bx-data" value="${pc.data || hoje()}"></div>
     <div class="field"><label>Forma</label><div class="chips" id="bx-forma">${FORMAS.map(f => `<button class="chip ${f === forma ? 'on' : ''}" onclick="chipUnico(this)">${f}</button>`).join('')}</div></div>
-    <div class="field"><label>Caiu em</label>${segConta('bx-conta', pre ? pc.conta : x.conta)}</div>
+    <div class="field"><label>Caiu em</label>${segConta('bx-conta', pre ? pc.conta : (x.carteira_id || x.conta))}</div>
     <button class="btn btn-p btn-w" onclick="darBaixa('${rid}')">${ic('check')} Confirmar</button>`);
 }
 async function darBaixa(rid){
@@ -2093,7 +2101,7 @@ function modalVinc(sid, vid){
       <div class="hint">"A definir" marca que precisa de alguém, mesmo antes de saber quem.</div></div>
     <div class="f2"><div class="field"><label>Função</label><input class="in" id="vc-fun" value="${esc(v?.funcao || '')}" placeholder="Ex.: eletricista"></div>
       <div class="field"><label>Repasse (R$)</label><input class="in num" id="vc-val" inputmode="numeric" data-money value="${v ? moneyIn(v.valor_repasse) : ''}"></div></div>
-    ${v?.repasse_status === 'pago' ? `<div class="field"><label>Saiu de</label>${segConta('vc-conta', v.conta)}</div>` : ''}
+    ${v?.repasse_status === 'pago' ? `<div class="field"><label>Saiu de</label>${segConta('vc-conta', v.carteira_id || v.conta)}</div>` : ''}
     <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarVinc('${sid}', ${v ? `'${v.id}'` : 'null'})">Salvar</button>
       ${v ? `<button class="btn btn-d" onclick="excluirVinc('${v.id}')">${ic('trash')}</button>` : ''}</div>
     ${v?.repasse_status === 'pago' && !serv(sid)?.finalizado_em ? `<button class="btn btn-g btn-w" style="margin-top:8px" onclick="desfazerRepasse('${v.id}')">Desfazer "pago"</button>` : ''}`);
@@ -2117,7 +2125,7 @@ function pagarRepasse(vid, pre){
     ${p?.pix ? `<div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div style="flex:1;min-width:0"><div class="lbl">PIX ${esc(p.pix_tipo || '')}</div>
       <div style="font-weight:700;overflow-wrap:anywhere">${esc(p.pix)}</div></div><button class="btn btn-sm btn-s" onclick="copiarPix('${p.id}')">${ic('copy')} Copiar</button></div>` : ''}
     <div class="field"><label>Data</label><input class="in" type="date" id="pg-data" value="${pc.data || hoje()}"></div>
-    <div class="field"><label>Saiu de</label>${segConta('pg-conta', pre ? pc.conta : v.conta)}</div>
+    <div class="field"><label>Saiu de</label>${segConta('pg-conta', pre ? pc.conta : (v.carteira_id || v.conta))}</div>
     <button class="btn btn-p btn-w" onclick="confirmaRepasse('${vid}')">${ic('check')} Confirmar pagamento</button>`);
 }
 async function confirmaRepasse(vid){
@@ -2162,17 +2170,32 @@ const CAT_GASTO = { material:'Material', combustivel:'Combustível', alimentacao
   anuncio:'Anúncio', imposto:'Imposto', taxa:'Taxa', outro:'Outro' };
 const ACERTO_TXT = { retirada:'ficou comigo', devolvido:'devolvi à PJ', reembolsado:'PJ me reembolsou', aporte:'aporte meu' };
 
-const segConta = (id, v) => `<div class="seg" id="${id}">${[['pj','Conta PJ'],['pf','Minha conta (PF)']]
-  .map(([k,t]) => `<button type="button" data-v="${k}" class="${(v || 'pj') === k ? 'on' : ''}" onclick="segPick(this)">${t}</button>`).join('')}</div>`;
+// Conta de onde saiu / onde caiu. v pode ser o id da carteira (lançamento
+// novo) ou 'pj'/'pf' (lançamento antigo e comando de voz): nesse caso abre
+// na primeira conta daquele tipo. Sem contas carregadas, volta o PJ/PF.
+const cartTipo = v => v === 'pj' || v === 'pf' ? v : (S.carteiras.find(c => c.id === v)?.tdh_uso || 'pj');
+const cartNome = id => S.carteiras.find(c => c.id === id)?.nome || '';
+const cartIni = v => S.carteiras.find(c => c.id === v)?.id || S.carteiras.find(c => c.tdh_uso === (v || 'pj'))?.id || '';
+function segConta(id, v){
+  if (!S.carteiras.length) return `<div class="seg" id="${id}">${[['pj','Conta PJ'],['pf','Minha conta (PF)']]
+    .map(([k,t]) => `<button type="button" data-v="${k}" class="${(v || 'pj') === k ? 'on' : ''}" onclick="segPick(this)">${t}</button>`).join('')}</div>`;
+  const sel = cartIni(v);
+  const grupo = (k, t) => `<optgroup label="${t}">${S.carteiras.filter(c => c.tdh_uso === k)
+    .map(c => `<option value="${c.id}"${c.id === sel ? ' selected' : ''}>${esc(c.nome)}</option>`).join('')}</optgroup>`;
+  return `<select class="in" id="${id}">${grupo('pj', 'Conta da empresa (PJ)')}${grupo('pf', 'Minha conta (PF)')}</select>`;
+}
 function segPick(el){ el.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === el)); }
 // Previsto/Imprevisto. Padrão é Previsto: gasto sem marca conta como
 // previsto, que é a regra combinada (só é imprevisto quando ele diz).
 const segImprev = (id, v) => `<div class="seg" id="${id}">${[['0','Previsto'],['1','Imprevisto']]
   .map(([k,t]) => `<button type="button" data-v="${k}" class="${(v ? '1' : '0') === k ? 'on' : ''}" onclick="segPick(this)">${t}</button>`).join('')}</div>`;
-const segVal = id => $(id)?.querySelector('button.on')?.dataset.v || 'pj';
+const segVal = id => { const el = $(id); return el?.tagName === 'SELECT' ? (el.value || 'pj') : (el?.querySelector('button.on')?.dataset.v || 'pj'); };
 // Voltar para PJ apaga o acerto: o banco não aceita acerto em dinheiro
 // da PJ, e a transferência que ele tinha gerado some junto (trigger).
-const contaPatch = c => c === 'pj' ? { conta:'pj', acerto:null, acerto_em:null } : { conta:'pf' };
+// 'pj'/'pf' literal (repasse que voltou a pendente, gasto pago todo com
+// crédito) limpa a conta: o dinheiro não andou.
+const contaPatch = c => { const k = cartTipo(c), cid = c === 'pj' || c === 'pf' ? null : c;
+  return k === 'pj' ? { conta:'pj', carteira_id:cid, acerto:null, acerto_em:null } : { conta:'pf', carteira_id:cid }; };
 
 // O que ainda precisa de acerto. Recebimento só depois de recebido, e
 // repasse só depois de pago: antes disso o dinheiro não andou.
@@ -2308,7 +2331,7 @@ function modalGasto(op = {}){
     ${op.fixo ? '' : `<div class="field"><label>Estava previsto no orçamento?</label>${segImprev('gs-imprev', g ? g.imprevisto : pc.imprevisto)}
       <div class="hint">Imprevisto = compra fora do escopo orçado (ex.: lona que não estava no serviço). Não muda o lucro, só mostra quanto saiu com imprevisto.</div></div>`}
     ${gastoCreditoHtml(g, pc)}
-    <div class="field"><label>Saiu de</label>${segConta('gs-conta', g?.conta || pc.conta)}</div>
+    <div class="field"><label>Saiu de</label>${segConta('gs-conta', g?.carteira_id || g?.conta || pc.conta)}</div>
     ${g?.acerto ? `<div class="hint" style="margin:-6px 0 12px">Acerto: ${ACERTO_TXT[g.acerto]} em ${fmtData(g.acerto_em)}. <button class="lnk" style="border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer;padding:0" onclick="modalAcerto('gasto','${g.id}')">Mudar</button></div>` : ''}
     <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarGasto(${g ? `'${g.id}'` : 'null'}, ${!escolheObra ? `'${sid}'` : 'null'})">Salvar</button>
       ${g ? `<button class="btn btn-d" onclick="excluirGasto('${g.id}')">${ic('trash')}</button>` : ''}</div>`);
@@ -2786,6 +2809,9 @@ function rowTransf(t){
     <div class="m">${fmtData(t.data)}${o ? ' · veio de um acerto' : ''}</div></div>
     <div class="r val" style="color:${t.sentido === 'para_voce' ? 'var(--text)' : 'var(--text3)'}">${m$(t.valor)}</div></div>`;
 }
+// Lado em branco: o Fullfin pede a conta na hora de aprovar.
+const selCart = (id, v) => `<select class="in" id="${id}"><option value="">Escolher no Fullfin</option>${S.carteiras
+  .map(c => `<option value="${c.id}"${c.id === v ? ' selected' : ''}>${esc(c.nome)} (${c.tdh_uso.toUpperCase()})</option>`).join('')}</select>`;
 function modalTransf(tid){
   const t = tid ? S.transf.find(x => x.id === tid) : null;
   openModal(t ? 'Editar transferência' : 'Transferência', `
@@ -2793,6 +2819,8 @@ function modalTransf(tid){
       `<button type="button" data-v="${k}" class="${(t?.sentido || 'para_voce') === k ? 'on' : ''}" onclick="segPick(this)">${l}</button>`).join('')}</div></div>
     <div class="f2"><div class="field"><label>Valor (R$)</label><input class="in num" id="tf-val" inputmode="numeric" data-money value="${t ? moneyIn(t.valor) : ''}"></div>
       <div class="field"><label>Data</label><input class="in" type="date" id="tf-data" value="${t?.data || hoje()}"></div></div>
+    ${S.carteiras.length ? `<div class="f2"><div class="field"><label>Saiu de</label>${selCart('tf-de', t?.carteira_origem)}</div>
+      <div class="field"><label>Entrou em</label>${selCart('tf-para', t?.carteira_destino)}</div></div>` : ''}
     <div class="field"><label>Descrição</label><input class="in" id="tf-desc" value="${esc(t?.descricao || '')}" placeholder="Opcional"></div>
     <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarTransf(${t ? `'${t.id}'` : 'null'})">Salvar</button>
       ${t ? `<button class="btn btn-d" onclick="excluirTransf('${t.id}')">${ic('trash')}</button>` : ''}</div>`);
@@ -2801,6 +2829,8 @@ async function salvarTransf(tid){
   const v = parseMoney(fv('tf-val')); if (!v) return toast('Coloque o valor.', true);
   const d = fv('tf-data'); if (!d) return toast('Escolha a data.', true);
   const row = { valor:v, data:d, sentido:$('tf-sent').querySelector('button.on')?.dataset.v || 'para_voce', descricao:fv('tf-desc').trim() || null };
+  if ($('tf-de')) Object.assign(row, { carteira_origem:fv('tf-de') || null, carteira_destino:fv('tf-para') || null });
+  if (row.carteira_origem && row.carteira_origem === row.carteira_destino) return toast('Saiu de e entrou em são a mesma conta.', true);
   const ok = await act(async () => {
     if (tid) { const [n] = await db.upd('tdh_transferencias', eqId(tid), row); Object.assign(S.transf.find(x => x.id === tid), n); }
     else S.transf.push(...await db.ins('tdh_transferencias', row));
@@ -2826,7 +2856,7 @@ function vFinalizar(r){
   const faltaReceb = rs.filter(x => !x.recebido_em), faltaRep = vs.filter(v => v.repasse_status !== 'pago');
   const lucro = recebido - t.gastoReal - t.repasse;
   const pode = !faltaReceb.length && !faltaRep.length;
-  const conta = x => `<span class="badge ${x.conta === 'pf' ? 'b-yel' : 'b-gray'}">${x.conta === 'pf' ? 'PF' : 'PJ'}</span>`;
+  const conta = x => `<span class="badge ${x.conta === 'pf' ? 'b-yel' : 'b-gray'}">${x.conta === 'pf' ? 'PF' : 'PJ'}${x.carteira_id && cartNome(x.carteira_id) ? ' · ' + esc(cartNome(x.carteira_id)) : ''}</span>`;
   return `
   <a class="back" href="#/serv/${s.id}">${ic('left')} ${esc(s.descricao)}</a>
   <div class="pg-head"><div><h2 class="pg">Revisar e finalizar</h2>
@@ -3437,7 +3467,7 @@ function sitIniciar(){
     const cfg = await loadCfg();
     // Config vazia = este login não tem acesso ao TDH (mesma regra do start).
     if (!cfg) throw new Error('Este login não tem acesso ao Trabalho de Homem.');
-    await Promise.all([load(...Object.keys(TAB)), loadDiligencias()]);
+    await Promise.all([load(...Object.keys(TAB)), loadDiligencias(), loadCarteiras()]);
     carregado = Date.now();
   })().finally(() => { carregando = null; }));
   window.addEventListener('message', async e => {
