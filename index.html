@@ -451,7 +451,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.14.0';
+const APP_VER = '1.14.1';
 
 /* ═══ Modo invisível (Concierge) — 11/11/2026 ═════════════════════════
    O Concierge abre este app escondido (iframe, ?situacao=1) só para montar
@@ -2374,7 +2374,7 @@ function modalGasto(op = {}){
   const escolheObra = !op.sid || g;
   const pc = pre?.campos || {};
   openModal(g ? 'Editar gasto' : (op.fixo ? 'Custo fixo' : 'Novo gasto'), `${pre ? vozBanner(pre) : ''}
-    <div class="f2"><div class="field"><label>Valor (R$)</label><input class="in num" id="gs-val" inputmode="numeric" data-money value="${g ? moneyIn(g.valor) : moneyIn(pc.valor)}"></div>
+    <div class="f2"><div class="field"><label>Valor (R$)</label><input class="in num" id="gs-val" inputmode="numeric" data-money oninput="gsContaVis()" value="${g ? moneyIn(g.valor) : moneyIn(pc.valor)}"></div>
       <div class="field"><label>Data</label><input class="in" type="date" id="gs-data" value="${g?.data || pc.data || hoje()}"></div></div>
     <div class="field"><label>Categoria</label><div class="chips" id="gs-cat">${Object.entries(CAT_GASTO).map(([k,t]) =>
       `<button class="chip ${(g?.categoria || pc.categoria || (op.fixo ? '' : 'material')) === k ? 'on' : ''}" data-v="${k}" onclick="chipUnico(this)">${t}</button>`).join('')}</div></div>
@@ -2385,7 +2385,7 @@ function modalGasto(op = {}){
     ${op.fixo ? '' : `<div class="field"><label>Estava previsto no orçamento?</label>${segImprev('gs-imprev', g ? g.imprevisto : pc.imprevisto)}
       <div class="hint">Imprevisto = compra fora do escopo orçado (ex.: lona que não estava no serviço). Não muda o lucro, só mostra quanto saiu com imprevisto.</div></div>`}
     ${gastoCreditoHtml(g, pc)}
-    <div class="field"><label>Saiu de</label>${segConta('gs-conta', g?.carteira_id || g?.conta || pc.conta)}</div>
+    <div class="field" id="gs-conta-box"><label id="gs-conta-lbl">Saiu de</label>${segConta('gs-conta', g?.carteira_id || g?.conta || pc.conta)}</div>
     ${g?.acerto ? `<div class="hint" style="margin:-6px 0 12px">Acerto: ${ACERTO_TXT[g.acerto]} em ${fmtData(g.acerto_em)}. <button class="lnk" style="border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer;padding:0" onclick="modalAcerto('gasto','${g.id}')">Mudar</button></div>` : ''}
     <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarGasto(${g ? `'${g.id}'` : 'null'}, ${!escolheObra ? `'${sid}'` : 'null'})">Salvar</button>
       ${g ? `<button class="btn btn-d" onclick="excluirGasto('${g.id}')">${ic('trash')}</button>` : ''}</div>`);
@@ -2395,9 +2395,19 @@ function modalGasto(op = {}){
     // Falou de crédito mas a loja não foi achada: a lista de lojas fica em
     // amarelo para escolher.
     vozMarcarVazios(['gs-val', ...(pc.sem_obra ? [] : ['gs-obra']), ...(num(pc.credito_valor) > 0 && !pc.credito_loja ? ['gs-cred-loja'] : [])]);
-    return;
+    gsContaVis(); return;
   }
+  gsContaVis();
   setTimeout(() => $('gs-val')?.focus(), 50);
+}
+// "Saiu de" só faz sentido para o que saiu de conta. Pago todo com crédito,
+// nada saiu (o salvarGasto já grava sem conta): esconde para não parecer
+// que o dinheiro saiu do Mercado Pago. Crédito parcial: é o resto que saiu.
+function gsContaVis(){
+  const box = $('gs-conta-box'); if (!box) return;
+  const v = parseMoney(fv('gs-val')), cr = $('gs-cred-loja') && fv('gs-cred-loja') ? parseMoney(fv('gs-cred-val')) : 0;
+  box.style.display = cr > 0 && cr >= v - 0.004 ? 'none' : '';
+  $('gs-conta-lbl').textContent = cr > 0 ? 'O resto saiu de' : 'Saiu de';
 }
 // Bloco "usou crédito de loja?" do gasto. Só aparece se existe crédito com
 // saldo (ou se este gasto já usa crédito / a voz falou de crédito).
@@ -2409,9 +2419,9 @@ function gastoCreditoHtml(g, pc){
   const disp = x => x.saldo + (g && lojaChave(g.credito_loja) === x.chave ? num(g.credito_valor) : 0);
   const opts = [...ls]; if (atual && !opts.some(x => x.chave === atual)) { const t = saldosLoja().find(x => x.chave === atual); if (t) opts.push(t); }
   const val = g ? num(g.credito_valor) : num(pc.credito_valor);
-  return `<div class="field"><label>Usou crédito de loja?</label><select class="in" id="gs-cred-loja" onchange="$('gs-cred-box').style.display=this.value?'':'none'">
+  return `<div class="field"><label>Usou crédito de loja?</label><select class="in" id="gs-cred-loja" onchange="$('gs-cred-box').style.display=this.value?'':'none';gsContaVis()">
       <option value="">Não</option>${opts.map(x => `<option value="${esc(x.nome)}" ${x.chave === atual ? 'selected' : ''}>${esc(x.nome)} · saldo ${money(disp(x))}</option>`).join('')}</select>
-    <div id="gs-cred-box" style="${atual || (!g && num(pc.credito_valor) > 0) ? '' : 'display:none'};margin-top:8px"><input class="in num" id="gs-cred-val" inputmode="numeric" data-money value="${moneyIn(val)}" placeholder="Quanto do crédito usou">
+    <div id="gs-cred-box" style="${atual || (!g && num(pc.credito_valor) > 0) ? '' : 'display:none'};margin-top:8px"><input class="in num" id="gs-cred-val" inputmode="numeric" data-money oninput="gsContaVis()" value="${moneyIn(val)}" placeholder="Quanto do crédito usou">
       <div class="hint">O gasto conta cheio na obra; no caixa entra só o que você pagou (valor − crédito).</div></div></div>`;
 }
 async function salvarGasto(gid, sidPreso){
