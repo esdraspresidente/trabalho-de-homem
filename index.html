@@ -451,7 +451,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.13.0';
+const APP_VER = '1.14.0';
 
 /* ═══ Modo invisível (Concierge) — 11/11/2026 ═════════════════════════
    O Concierge abre este app escondido (iframe, ?situacao=1) só para montar
@@ -1800,7 +1800,8 @@ function modalNovoServico(data, pre){
     <div class="field"><label>Endereço</label><input class="in" id="ns-end"></div>
     <div class="f2"><div class="field"><label>Bairro</label><input class="in" id="ns-bai"></div><div class="field"><label>Cidade</label><input class="in" id="ns-cid"></div></div>
     <div class="f2"><div class="field"><label>Valor cobrado (R$)</label><input class="in num" id="ns-val" inputmode="numeric" data-money value="${pc.valor ? moneyIn(pc.valor) : ''}"></div>
-      <div class="field"><label>Material previsto (R$)</label><input class="in num" id="ns-mat" inputmode="numeric" data-money></div></div>
+      <div class="field"><label>Material previsto (R$)</label><input class="in num" id="ns-mat" inputmode="numeric" data-money oninput="nsCredResto()"></div></div>
+    ${nsCreditoHtml()}
     <label style="display:flex;gap:10px;align-items:center;margin:4px 0 12px;font-weight:700;cursor:pointer">
       <input type="checkbox" id="ns-feito" ${feito ? 'checked' : ''} onchange="nsFeito()" style="width:20px;height:20px"> Já feito e pago</label>
     <div id="ns-agenda" class="f3"><div class="field"><label>Data</label><input class="in" type="date" id="ns-data" value="${data || pc.data || ''}"></div>
@@ -1824,13 +1825,46 @@ function nsFeito(){
   $('ns-ok').innerHTML = f ? `${ic('check')} Criar como feito e pago` : 'Criar serviço';
   if (f) $('ns-warn').innerHTML = '';
 }
+// Material pago com crédito de loja (15/11/2026).
+// Por que aqui: no serviço rápido o material já foi comprado, e às vezes
+// com crédito de devolução. Sem este campo era preciso criar o serviço e
+// depois abrir "+ Gasto" só para dizer isso. Ao salvar, vira um gasto de
+// material da obra, gravado pelo mesmo caminho do "+ Gasto" (o banco
+// confere o saldo da loja e manda para o Fullfin igual).
+// Só aparece se alguma loja tem saldo: sem crédito, não há o que escolher.
+function nsCreditoHtml(){
+  const ls = saldosLoja().filter(x => x.saldo > 0.004);
+  if (!ls.length) return '';
+  return `<div class="field"><label>Pagou o material com crédito de loja?</label>
+    <select class="in" id="ns-cred-loja" onchange="nsCred()"><option value="">Não</option>
+      ${ls.map(x => `<option value="${esc(x.nome)}">${esc(x.nome)} · saldo ${money(x.saldo)}</option>`).join('')}</select>
+    <div id="ns-cred-box" style="display:none;margin-top:8px">
+      <input class="in num" id="ns-cred-val" inputmode="numeric" data-money placeholder="Quanto do crédito usou" oninput="nsCredResto()">
+      <div id="ns-cred-resto" style="display:none;margin-top:8px"><label style="font-size:13px;color:var(--text3)">O resto do material saiu de</label>${segConta('ns-mconta')}</div>
+      <div class="hint">Vira um gasto de material desta obra: conta cheio no lucro; no caixa entra só o que não foi crédito.</div></div></div>`;
+}
+// Ao escolher a loja, já sugere o crédito: o material todo, até o saldo.
+function nsCred(){
+  const loja = fv('ns-cred-loja'); $('ns-cred-box').style.display = loja ? '' : 'none';
+  if (loja && !parseMoney(fv('ns-cred-val'))) {
+    const mat = parseMoney(fv('ns-mat')), sd = saldoLoja(loja);
+    const v = mat > 0 ? Math.min(mat, sd) : sd; $('ns-cred-val').value = moneyIn(v);
+  }
+  nsCredResto();
+}
+// Conta do resto só aparece quando o crédito não cobriu o material todo.
+function nsCredResto(){
+  const el = $('ns-cred-resto'); if (!el) return;
+  const mat = parseMoney(fv('ns-mat')), cr = parseMoney(fv('ns-cred-val'));
+  el.style.display = fv('ns-cred-loja') && mat > cr + 0.004 ? '' : 'none';
+}
 // Só existe um modal por vez: guarda o formulário, cadastra o cliente e
 // volta com tudo preenchido.
-const NS_CAMPOS = ['ns-desc','ns-end','ns-bai','ns-cid','ns-val','ns-mat','ns-data','ns-ini','ns-fim','ns-rec'];
+const NS_CAMPOS = ['ns-desc','ns-end','ns-bai','ns-cid','ns-val','ns-mat','ns-data','ns-ini','ns-fim','ns-rec','ns-cred-loja','ns-cred-val'];
 function nsNovoCliente(){
   const rasc = {}; NS_CAMPOS.forEach(k => rasc[k] = fv(k)); const feito = $('ns-feito').checked;
   modalCliente(null, cid => { modalNovoServico(rasc['ns-data']); NS_CAMPOS.forEach(k => { if ($(k)) $(k).value = rasc[k]; });
-    $('ns-feito').checked = feito; nsFeito(); $('ns-cli').value = cid; nsCli(); });
+    $('ns-feito').checked = feito; nsFeito(); if ($('ns-cred-loja')) nsCred(); $('ns-cli').value = cid; nsCli(); });
 }
 function nsCli(){ const c = cliente(fv('ns-cli')); if (!c) return;
   if (!fv('ns-end')) $('ns-end').value = c.endereco || ''; if (!fv('ns-bai')) $('ns-bai').value = c.bairro || ''; if (!fv('ns-cid')) $('ns-cid').value = c.cidade || ''; }
@@ -1847,12 +1881,32 @@ async function criarServico(){
   if (feito && !(val > 0)) return toast('Diga quanto o cliente pagou.', true);
   if (feito && !rec) return toast('Escolha a data em que recebeu.', true);
   const conta = feito ? segVal('ns-conta') : null;
-  let rid = null;
+  // Crédito de loja: confere antes de gravar qualquer coisa, para não
+  // sobrar serviço criado com o gasto recusado pelo banco.
+  const credLoja = $('ns-cred-loja') ? fv('ns-cred-loja') : '';
+  const credVal = credLoja ? parseMoney(fv('ns-cred-val')) : 0;
+  // Sem material previsto, o material é o próprio crédito usado.
+  const mat = parseMoney(fv('ns-mat')) || credVal;
+  if (credLoja) {
+    if (!credVal) return toast('Coloque quanto do crédito usou (ou marque "Não").', true);
+    if (credVal > mat + 0.004) return toast('O crédito usado não pode passar do material.', true);
+    const sd = saldoLoja(credLoja);
+    if (credVal > sd + 0.004) return toast(`Crédito insuficiente: ${credLoja} tem ${money(sd)}.`, true);
+  }
+  // Pago todo com crédito: não saiu de conta nenhuma (mesma regra do gasto).
+  const contaMat = credLoja && credVal < mat - 0.004 ? segVal('ns-mconta') : 'pj';
+  let rid = null, gNovo = null;
   const sid = await act(async () => {
     const [s] = await db.ins('tdh_servicos', { descricao:desc, cliente_id:fv('ns-cli') || null, endereco:fv('ns-end').trim() || null,
-      bairro:fv('ns-bai').trim() || null, cidade:fv('ns-cid').trim() || null, valor_cobrado:val, custo_material:parseMoney(fv('ns-mat')),
+      bairro:fv('ns-bai').trim() || null, cidade:fv('ns-cid').trim() || null, valor_cobrado:val, custo_material:mat,
       status: feito ? 'executado' : data ? 'agendado' : 'a_agendar' });
     S.servicos.unshift(s);
+    if (credLoja) {
+      const loja = saldosLoja().find(x => x.chave === lojaChave(credLoja))?.nome || credLoja;
+      [gNovo] = await db.ins('tdh_gastos', { servico_id:s.id, valor:mat, data:(feito ? rec : '') || hoje(), categoria:'material',
+        descricao:'Material (crédito ' + loja + ')', imprevisto:false, credito_loja:loja, credito_valor:credVal, ...contaPatch(contaMat) });
+      S.gastos.push(gNovo); await load('transf');
+    }
     if (val > 0) {
       const base = { servico_id:s.id, descricao:'Pagamento', valor:val, previsao:(feito ? rec : data) || null };
       const [r] = await db.ins('tdh_recebimentos', feito ? { ...base, recebido_em:rec, forma_pagamento:chipSel('ns-forma'), ...contaPatch(conta) } : base);
