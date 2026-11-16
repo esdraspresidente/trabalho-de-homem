@@ -1863,11 +1863,25 @@ function nsCredResto(){
 const NS_CAMPOS = ['ns-desc','ns-end','ns-bai','ns-cid','ns-val','ns-mat','ns-data','ns-ini','ns-fim','ns-rec','ns-cred-loja','ns-cred-val'];
 function nsNovoCliente(){
   const rasc = {}; NS_CAMPOS.forEach(k => rasc[k] = fv(k)); const feito = $('ns-feito').checked;
+  // Leva junto a marca de "veio do cadastro", senão o endereço do cliente
+  // anterior pareceria digitado à mão e não seria trocado pelo do novo.
+  const autos = {}; NS_END.forEach(([id]) => autos[id] = $(id).dataset.auto);
   modalCliente(null, cid => { modalNovoServico(rasc['ns-data']); NS_CAMPOS.forEach(k => { if ($(k)) $(k).value = rasc[k]; });
+    NS_END.forEach(([id]) => { if (autos[id] != null) $(id).dataset.auto = autos[id]; });
     $('ns-feito').checked = feito; nsFeito(); if ($('ns-cred-loja')) nsCred(); $('ns-cli').value = cid; nsCli(); });
 }
-function nsCli(){ const c = cliente(fv('ns-cli')); if (!c) return;
-  if (!fv('ns-end')) $('ns-end').value = c.endereco || ''; if (!fv('ns-bai')) $('ns-bai').value = c.bairro || ''; if (!fv('ns-cid')) $('ns-cid').value = c.cidade || ''; }
+// Endereço acompanha o cliente (16/11/2026).
+// Antes só preenchia campo vazio: o primeiro cliente escolhido "grudava" e
+// trocar de cliente deixava o endereço do anterior. Agora cada campo guarda
+// em data-auto o que veio do cadastro; se o valor atual ainda é esse (ou
+// está vazio), troca pelo do novo cliente. Se foi digitado à mão — serviço
+// num endereço diferente do cadastro — fica, porque foi escolha sua.
+// "— sem cadastro —" limpa o que tinha vindo do cliente anterior.
+const NS_END = [['ns-end','endereco'],['ns-bai','bairro'],['ns-cid','cidade']];
+function nsCli(){ const c = cliente(fv('ns-cli'));
+  NS_END.forEach(([id, k]) => { const el = $(id), novo = c?.[k] || '';
+    if (!el.value || el.value === el.dataset.auto) { el.value = novo; el.dataset.auto = novo; } });
+}
 const warnHtml = av => av.map(a => `<div class="warn">${ic('alert')}<span>${a}</span></div>`).join('');
 async function criarServico(){
   const desc = fv('ns-desc').trim(); if (!desc) return toast('Diga o que vai ser feito.', true);
