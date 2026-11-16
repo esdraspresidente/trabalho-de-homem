@@ -900,6 +900,20 @@ function vPainel(){
   const abertosTot = abertos.reduce((t,o) => t + totaisOrc(o.id).total, 0);
   const recMes = S.receb.filter(r => (r.recebido_em||'').startsWith(mes)).reduce((t,r) => t + num(r.valor), 0);
   const repMes = S.vinc.filter(v => (v.repassado_em||'').startsWith(mes)).reduce((t,v) => t + num(v.valor_repasse), 0);
+  // Faturado e lucro do mês (16/11/2026).
+  // "Recebido" é caixa: soma o que entrou no mês, inclusive parcela de obra
+  // fechada antes. Faturado é competência: o valor dos serviços fechados no
+  // mês (data de criação do serviço = quando o orçamento foi aprovado ou o
+  // serviço direto lançado). O lucro usa a MESMA base, para a margem fazer
+  // sentido: finalizado vale o lucro travado que foi para o Fullfin; o resto
+  // vale o lucro de hoje (gasto real se já lançou, senão o previsto).
+  // created_at vem em UTC: converte para a data local, senão serviço criado
+  // depois das 21h do último dia cairia no mês seguinte.
+  const mesLocal = ts => { const d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+  const servMes = S.servicos.filter(s => s.status !== 'cancelado' && s.created_at && mesLocal(s.created_at) === mes);
+  const fatMes = servMes.reduce((t,s) => t + num(s.valor_cobrado), 0);
+  let lucMes = 0, lucFin = 0;
+  servMes.forEach(s => { const l = totaisServ(s.id).lucro; lucMes += l; if (s.finalizado_em) lucFin += l; });
   const prox = S.agendas.filter(a => a.data >= h && a.data <= addDias(h, 7) && agAtiva(a));
   const dil7 = S.dil.filter(d => d.data >= h && d.data <= addDias(h, 7));
   const saud = new Date().getHours() < 12 ? 'Bom dia' : new Date().getHours() < 18 ? 'Boa tarde' : 'Boa noite';
@@ -912,6 +926,9 @@ function vPainel(){
     <a class="kpi hi" href="#/servicos"><div class="k">A receber</div><div class="v">${m$(aReceber)}</div>
       <div class="s">${pend.length} lançamento(s)${atras.length ? ` · <b style="color:#FFB4B4">${atras.length} atrasado(s)</b>` : ''}</div></a>
     <a class="kpi" href="#/servicos"><div class="k">Repasses a pagar</div><div class="v">${m$(repTot)}</div><div class="s">${repPend.length} prestador(es)</div></a>
+    <a class="kpi" href="#/servicos"><div class="k">Faturado em ${MESES[+mes.slice(5)-1]}</div><div class="v">${m$(fatMes)}</div><div class="s">${servMes.length} serviço(s) fechado(s)</div></a>
+    <a class="kpi" href="#/servicos"><div class="k">Lucro em ${MESES[+mes.slice(5)-1]}</div><div class="v" style="color:${lucMes < 0 ? 'var(--red)' : 'var(--green)'}">${m$(lucMes)}</div>
+      <div class="s">${pct(lucMes, fatMes)} do faturado · ${m$(lucFin)} já finalizado</div></a>
     <a class="kpi" href="#/orcamentos"><div class="k">Orçamentos em aberto</div><div class="v">${m$(abertosTot)}</div><div class="s">${abertos.length} aguardando resposta</div></a>
     <div class="kpi"><div class="k">Recebido em ${MESES[+mes.slice(5)-1]}</div><div class="v">${m$(recMes)}</div><div class="s">repassado ${m$(repMes)}</div></div>
   </div>
