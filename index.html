@@ -451,7 +451,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.14.1';
+const APP_VER = '1.15.0';
 
 /* ═══ Modo invisível (Concierge) — 11/11/2026 ═════════════════════════
    O Concierge abre este app escondido (iframe, ?situacao=1) só para montar
@@ -643,7 +643,7 @@ const ic = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hid
    Volume pequeno (um negócio, uma pessoa): carrega tudo no login e
    recarrega só a tabela que mudou. Evita consulta a cada tela. */
 const S = {
-  cfg:null, clientes:[], prestadores:[], orcs:[], itens:[], servicos:[], agendas:[], receb:[], vinc:[], gastos:[], transf:[], creditos:[],
+  cfg:null, clientes:[], prestadores:[], orcs:[], itens:[], servicos:[], agendas:[], receb:[], vinc:[], gastos:[], transf:[], creditos:[], resgates:[],
   dil:[], blq:[], dilOk:true, carteiras:[],
 };
 const TAB = {
@@ -653,6 +653,8 @@ const TAB = {
   receb:['tdh_recebimentos','&order=created_at.asc'], vinc:['tdh_servico_prestadores','&order=created_at.asc'],
   gastos:['tdh_gastos','&order=data.asc,created_at.asc'], transf:['tdh_transferencias','&order=data.asc,created_at.asc'],
   creditos:['tdh_creditos_loja','&order=data.asc,created_at.asc'],
+  // Crédito trocado por dinheiro (16/11/2026): baixa a loja sem mexer em obra.
+  resgates:['tdh_creditos_resgates','&order=data.asc,created_at.asc'],
 };
 async function load(...keys){
   await Promise.all(keys.map(async k => { S[k] = await db.sel(TAB[k][0], TAB[k][1]) || []; }));
@@ -2307,10 +2309,13 @@ const pago = g => num(g.valor) - num(g.credito_valor);
 const lojaChave = t => String(t || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
 function saldosLoja(){
   const m = {};
-  const pega = (nome) => { const k = lojaChave(nome); if (!m[k]) m[k] = { chave:k, nome:String(nome).trim(), devol:0, uso:0 }; return m[k]; };
+  const pega = (nome) => { const k = lojaChave(nome); if (!m[k]) m[k] = { chave:k, nome:String(nome).trim(), devol:0, uso:0, resg:0 }; return m[k]; };
   S.creditos.forEach(c => { const x = pega(c.loja); x.devol += num(c.valor); x.nome = String(c.loja).trim(); });
   S.gastos.filter(g => num(g.credito_valor) > 0).forEach(g => { pega(g.credito_loja).uso += num(g.credito_valor); });
-  return Object.values(m).map(x => ({ ...x, saldo: Math.round((x.devol - x.uso) * 100) / 100 })).sort((a,b) => b.saldo - a.saldo || a.nome.localeCompare(b.nome));
+  // Resgate (crédito trocado por dinheiro) também tira da loja. Mesma conta
+  // do banco (tdh_credito_confere): devoluções − usos − resgates.
+  S.resgates.forEach(r => { pega(r.loja).resg += num(r.valor); });
+  return Object.values(m).map(x => ({ ...x, saldo: Math.round((x.devol - x.uso - x.resg) * 100) / 100 })).sort((a,b) => b.saldo - a.saldo || a.nome.localeCompare(b.nome));
 }
 const saldoLoja = nome => saldosLoja().find(x => x.chave === lojaChave(nome))?.saldo || 0;
 
@@ -2328,19 +2333,77 @@ function vCreditos(){
     ...usos.map(g => ({ d:g.data, h:`<div class="row" onclick="modalGasto({ gid:'${g.id}' })"><div class="main">
       <div class="t">Usado · ${esc(g.credito_loja)}${g.descricao ? ' · ' + esc(g.descricao) : ''}</div>
       <div class="m">${fmtData(g.data)}${g.servico_id ? ' · ' + esc(serv(g.servico_id)?.descricao || '') : ''} · gasto de ${money(g.valor)}</div></div>
-      <div class="r val" style="color:var(--red)">− ${m$(g.credito_valor)}</div></div>` }))].sort((a,b) => b.d.localeCompare(a.d));
+      <div class="r val" style="color:var(--red)">− ${m$(g.credito_valor)}</div></div>` })),
+    ...S.resgates.map(r => ({ d:r.data, h:rowResgate(r) }))].sort((a,b) => b.d.localeCompare(a.d));
   return `<a class="back" href="#/mais">${ic('left')} Mais</a>
   <div class="pg-head"><h2 class="pg">Créditos em loja</h2></div>
-  <p style="color:var(--text3);font-size:13.5px;margin:-6px 0 14px">Material devolvido que virou crédito. A devolução baixa o gasto da obra de onde saiu; quando o crédito é usado, o gasto da obra nova conta cheio, mas no caixa só entra o que você pagou.</p>
+  <p style="color:var(--text3);font-size:13.5px;margin:-6px 0 14px">Material devolvido que virou crédito. A devolução baixa o gasto da obra de onde saiu; quando o crédito é usado, o gasto da obra nova conta cheio, mas no caixa só entra o que você pagou. Vendeu o crédito ou a loja pagou em dinheiro? Use "Resgatei em dinheiro".</p>
   <div class="list">${ls.length ? ls.map(x => `<div class="row"><div class="main"><div class="t">${esc(x.nome)}</div>
-      <div class="m">devolvido ${money(x.devol)} · usado ${money(x.uso)}</div></div>
+      <div class="m">devolvido ${money(x.devol)} · usado ${money(x.uso)}${x.resg ? ' · resgatado ' + money(x.resg) : ''}</div></div>
       <div class="r val" style="${x.saldo > 0 ? 'color:var(--green);font-weight:800' : 'color:var(--text3)'}">${m$(x.saldo)}</div></div>`).join('')
     : '<div class="empty">Nenhum crédito ainda. Quando devolver material e a loja der crédito, lance aqui ou na obra.</div>'}</div>
+  ${ls.some(x => x.saldo > 0.004) ? `<button class="btn btn-w" style="margin-top:12px" onclick="modalResgate()">${ic('money')} Resgatei em dinheiro</button>` : ''}
   <div class="sec">Movimentos</div>
   <div class="list">${hist.length ? hist.map(x => x.h).join('') : '<div class="empty">Nada lançado.</div>'}</div>
   <div style="height:64px"></div>
   <button class="fab" onclick="modalCredito({})">${ic('plus')} Devolução</button>`;
 }
+
+// ── Crédito trocado por dinheiro (16/11/2026) ──────────────────────
+// Caso real: crédito da Casa Souza vendido a um amigo, dinheiro na conta.
+// Não tem obra: a devolução já tirou o material do gasto da obra de origem;
+// aqui só sai o crédito da loja e entra o dinheiro numa conta. O Fullfin
+// importa como entrada nessa conta (opção A), então não lance lá à mão.
+function rowResgate(r){
+  const perda = num(r.valor) - num(r.recebido);
+  return `<div class="row" onclick="modalResgate('${r.id}')"><div class="main">
+    <div class="t">Resgatado em dinheiro · ${esc(r.loja)}${r.descricao ? ' · ' + esc(r.descricao) : ''}</div>
+    <div class="m">${fmtData(r.data)}${r.carteira_id && cartNome(r.carteira_id) ? ' · caiu na ' + esc(cartNome(r.carteira_id)) : ''}${perda > 0.004 ? ` · recebeu ${money(r.recebido)} (perda ${money(perda)})` : ''}</div></div>
+    <div class="r val" style="color:var(--red)">− ${m$(r.valor)}</div></div>`;
+}
+function modalResgate(rid){
+  const r = rid ? S.resgates.find(x => x.id === rid) : null;
+  // Editando: o que este resgate já tirou volta para o saldo disponível.
+  const lojas = saldosLoja().map(x => ({ ...x, disp: x.saldo + (r && lojaChave(r.loja) === x.chave ? num(r.valor) : 0) })).filter(x => x.disp > 0.004);
+  openModal(r ? 'Editar resgate' : 'Resgatei crédito em dinheiro', `
+    <div class="field"><label>Loja</label><select class="in" id="rg-loja" onchange="rgSugere()">
+      ${lojas.map(x => `<option value="${esc(x.nome)}" data-disp="${x.disp}"${r && lojaChave(r.loja) === x.chave ? ' selected' : ''}>${esc(x.nome)} · saldo ${money(x.disp)}</option>`).join('')}
+    </select></div>
+    <div class="f2"><div class="field"><label>Crédito que saiu (R$)</label><input class="in num" id="rg-val" inputmode="numeric" data-money value="${moneyIn(r?.valor || lojas.find(x => !r || lojaChave(r.loja) === x.chave)?.disp)}" oninput="rgEspelha()"></div>
+      <div class="field"><label>Dinheiro recebido (R$)</label><input class="in num" id="rg-rec" inputmode="numeric" data-money oninput="rgSugere._rec=false" value="${moneyIn(r ? r.recebido : lojas.find(x => !r || lojaChave(r.loja) === x.chave)?.disp)}"></div></div>
+    <div class="hint" style="margin:-6px 0 10px">Vendeu com desconto? Coloque no recebido só o que entrou: a diferença fica como perda.</div>
+    <div class="f2"><div class="field"><label>Caiu em</label>${segConta('rg-conta', r?.carteira_id || r?.conta || 'pf')}</div>
+      <div class="field"><label>Data</label><input class="in" type="date" id="rg-data" value="${r?.data || hoje()}"></div></div>
+    <div class="field"><label>Descrição</label><input class="in" id="rg-desc" value="${esc(r?.descricao || '')}" placeholder="Ex.: vendi para o amigo"></div>
+    <div class="hint">Vai para o Fullfin como entrada nessa conta. Não mexe no lucro de nenhuma obra.</div>
+    <div class="btns"><button class="btn btn-p" style="flex:1" onclick="salvarResgate(${r ? `'${r.id}'` : 'null'})">Salvar</button>
+      ${r ? `<button class="btn btn-d" onclick="excluirResgate('${r.id}')">${ic('trash')}</button>` : ''}</div>`);
+  rgSugere._rec = !r; // lançamento novo: recebido acompanha o crédito até ele mexer
+}
+// Trocar de loja sugere o saldo inteiro dela (o caso comum é vender tudo).
+function rgSugere(){ const o = $('rg-loja').selectedOptions[0]; if (!o) return;
+  $('rg-val').value = moneyIn(num(o.dataset.disp)); rgEspelha(); }
+function rgEspelha(){ if (rgSugere._rec) $('rg-rec').value = $('rg-val').value; }
+async function salvarResgate(rid){
+  const loja = fv('rg-loja'); if (!loja) return toast('Escolha a loja.', true);
+  const v = parseMoney(fv('rg-val')); if (!v) return toast('Coloque quanto de crédito saiu.', true);
+  const rec = parseMoney(fv('rg-rec')) || 0;
+  if (rec > v + 0.004) return toast('O dinheiro recebido não pode passar do crédito.', true);
+  const disp = num($('rg-loja').selectedOptions[0]?.dataset.disp);
+  if (v > disp + 0.004) return toast(`Crédito insuficiente: ${loja} tem ${money(disp)}.`, true);
+  const c = segVal('rg-conta');
+  const row = { loja, valor:v, recebido:rec, data:fv('rg-data') || hoje(), descricao:fv('rg-desc').trim() || null,
+    conta:cartTipo(c), carteira_id: c === 'pj' || c === 'pf' ? null : c };
+  const ok = await act(async () => {
+    if (rid) { const [n] = await db.upd('tdh_creditos_resgates', eqId(rid), row); Object.assign(S.resgates.find(x => x.id === rid), n); }
+    else S.resgates.push(...await db.ins('tdh_creditos_resgates', row));
+    return true; }, 'Resgate lançado.');
+  if (ok) { closeModal(); rerender(); }
+}
+function excluirResgate(rid){ closeModal();
+  confirmar('Excluir resgate', 'Apagar este resgate? O crédito volta para a loja. Se já importou no Fullfin, apague a entrada lá também.', 'Excluir', async () => {
+    const ok = await act(async () => { await db.del('tdh_creditos_resgates', eqId(rid)); S.resgates = S.resgates.filter(x => x.id !== rid); return true; });
+    if (ok) rerender(); }, true); }
 // op: { sid } já ligado à obra de origem; { cid } edita; { voz } vem do comando de voz.
 function modalCredito(op = {}){
   const c = op.cid ? S.creditos.find(x => x.id === op.cid) : null;
@@ -3035,6 +3098,10 @@ function finMes(mes){
   const transf = S.transf.filter(t => no(t.data));
   const soma = (a, f) => a.reduce((t,x) => t + num(f(x)), 0);
   const fat = soma(receb, r => r.valor);
+  // Crédito de loja vendido: dinheiro que entrou na conta no mês. Fica numa
+  // linha própria porque não é recebimento de cliente (o material já tinha
+  // saído do gasto da obra quando foi devolvido).
+  const resg = soma(S.resgates.filter(x => no(x.data)), x => x.recebido);
   // Caixa: parte paga com crédito de loja não saiu da conta.
   const gObra = soma(gastos.filter(g => g.servico_id), pago);
   const gFixo = soma(gastos.filter(g => !g.servico_id), pago);
@@ -3047,7 +3114,7 @@ function finMes(mes){
     + soma(gastos.filter(g => g.conta === 'pf' && g.acerto === 'aporte'), pago)
     + soma(reps.filter(v => v.conta === 'pf' && v.acerto === 'aporte'), v => v.valor_repasse);
   const porCat = {}; gastos.forEach(g => porCat[g.categoria] = (porCat[g.categoria] || 0) + pago(g));
-  return { fat, gObra, gFixo, rep, lucro: fat - gObra - gFixo - rep, retirado, aporte, porCat,
+  return { fat, resg, gObra, gFixo, rep, lucro: fat + resg - gObra - gFixo - rep, retirado, aporte, porCat,
     fixos: gastos.filter(g => !g.servico_id), transf, nReceb: receb.length };
 }
 // Saldo que deveria estar na conta PJ, desde o começo. Não tem saldo
@@ -3059,7 +3126,8 @@ function saldoPJ(){
     - soma(S.gastos.filter(g => g.conta === 'pj'), pago)
     - soma(S.vinc.filter(v => v.conta === 'pj' && v.repasse_status === 'pago'), v => v.valor_repasse)
     + soma(S.transf.filter(t => t.sentido === 'para_empresa'), t => t.valor)
-    - soma(S.transf.filter(t => t.sentido === 'para_voce'), t => t.valor);
+    - soma(S.transf.filter(t => t.sentido === 'para_voce'), t => t.valor)
+    + soma(S.resgates.filter(x => x.conta === 'pj'), x => x.recebido);
 }
 
 function vFinanceiro(r){
@@ -3085,6 +3153,7 @@ function vFinanceiro(r){
   <div class="sec">Resultado do mês</div>
   <div class="card"><table class="sumtab">
     <tr><td>Recebido dos clientes</td><td class="money">${money(f.fat)}</td></tr>
+    ${f.resg ? `<tr><td>Crédito de loja vendido</td><td class="money">${money(f.resg)}</td></tr>` : ''}
     <tr><td>Gastos das obras</td><td class="neg money">− ${money(f.gObra)}</td></tr>
     <tr><td>Repasses a prestadores</td><td class="neg money">− ${money(f.rep)}</td></tr>
     <tr><td>Custos fixos</td><td class="neg money">− ${money(f.gFixo)}</td></tr>
