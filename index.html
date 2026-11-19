@@ -914,8 +914,24 @@ function vPainel(){
   const mesLocal = ts => { const d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
   const servMes = S.servicos.filter(s => s.status !== 'cancelado' && s.created_at && mesLocal(s.created_at) === mes);
   const fatMes = servMes.reduce((t,s) => t + num(s.valor_cobrado), 0);
-  let lucMes = 0, lucFin = 0;
-  servMes.forEach(s => { const l = totaisServ(s.id).lucro; lucMes += l; if (s.finalizado_em) lucFin += l; });
+  // Lucro do mês separado em caixa (19/11/2026). O total previsto sozinho
+  // dava a impressão de que os 29 mil já tinham entrado na conta.
+  // A conta mostrada é a do bolso, somando todos os serviços do mês juntos:
+  //   recebido dos clientes − (material já comprado + repasse já pago)
+  // Somar tudo junto evita que uma obra com material comprado e cliente que
+  // ainda não pagou apareça sozinha no vermelho: o gasto adiantado é
+  // abatido do que entrou nas outras.
+  // Só entra custo que de fato saiu (gasto lançado e repasse pago). Material
+  // previsto e repasse pendente ficam na parte "a receber", que é o lucro
+  // previsto menos o que já está no bolso. As duas partes somam o previsto.
+  // Finalizado: o custo é o que o banco travou (recebido − lucro_final).
+  let lucMes = 0, lucFin = 0, recServ = 0, custoPago = 0;
+  servMes.forEach(s => {
+    const t = totaisServ(s.id); lucMes += t.lucro; recServ += t.recebido;
+    if (s.finalizado_em) { lucFin += t.lucro; custoPago += t.recebido - t.lucro; }
+    else custoPago += t.gastoReal + t.repPago;
+  });
+  const lucNoBolso = recServ - custoPago, lucFalta = lucMes - lucNoBolso;
   const prox = S.agendas.filter(a => a.data >= h && a.data <= addDias(h, 7) && agAtiva(a));
   const dil7 = S.dil.filter(d => d.data >= h && d.data <= addDias(h, 7));
   const saud = new Date().getHours() < 12 ? 'Bom dia' : new Date().getHours() < 18 ? 'Boa tarde' : 'Boa noite';
@@ -929,8 +945,10 @@ function vPainel(){
       <div class="s">${pend.length} lançamento(s)${atras.length ? ` · <b style="color:#FFB4B4">${atras.length} atrasado(s)</b>` : ''}</div></a>
     <a class="kpi" href="#/servicos"><div class="k">Repasses a pagar</div><div class="v">${m$(repTot)}</div><div class="s">${repPend.length} prestador(es)</div></a>
     <a class="kpi" href="#/servicos"><div class="k">Faturado em ${MESES[+mes.slice(5)-1]}</div><div class="v">${m$(fatMes)}</div><div class="s">${servMes.length} serviço(s) fechado(s)</div></a>
-    <a class="kpi" href="#/servicos"><div class="k">Lucro em ${MESES[+mes.slice(5)-1]}</div><div class="v" style="color:${lucMes < 0 ? 'var(--red)' : 'var(--green)'}">${m$(lucMes)}</div>
-      <div class="s">${pct(lucMes, fatMes)} do faturado · ${m$(lucFin)} já finalizado</div></a>
+    <a class="kpi" href="#/servicos"><div class="k">Lucro recebido em ${MESES[+mes.slice(5)-1]}</div><div class="v" style="color:${lucNoBolso < 0 ? 'var(--red)' : 'var(--green)'}">${m$(lucNoBolso)}</div>
+      <div class="s">Entrou ${m$(recServ)} − gastos ${m$(custoPago)}</div>
+      <div class="s">+ ${m$(lucFalta)} a receber</div>
+      <div class="s">Previsto no mês ${m$(lucMes)} (${pct(lucMes, fatMes)}) · ${m$(lucFin)} finalizado</div></a>
     <a class="kpi" href="#/orcamentos"><div class="k">Orçamentos em aberto</div><div class="v">${m$(abertosTot)}</div><div class="s">${abertos.length} aguardando resposta</div></a>
     <div class="kpi"><div class="k">Recebido em ${MESES[+mes.slice(5)-1]}</div><div class="v">${m$(recMes)}</div><div class="s">repassado ${m$(repMes)}</div></div>
   </div>
