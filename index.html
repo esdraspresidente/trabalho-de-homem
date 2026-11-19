@@ -761,10 +761,20 @@ function totaisServ(sid){
   const gastoImprev = gs.filter(g => g.imprevisto).reduce((t,g) => t + num(g.valor), 0);
   const previsto = num(s?.custo_material);
   const lucroPrev = num(s?.valor_cobrado) - previsto - repasse;
+  // Material que ainda falta comprar (19/11/2026). Antes, o primeiro gasto
+  // lançado substituía o previsto inteiro: orçou R$ 2.000, lançou a 1ª compra
+  // de R$ 800, e o app tratava o material como encerrado, mostrando R$ 1.200
+  // a mais de lucro (e de "a receber" no painel) que ainda iam ser gastos.
+  // Agora, até finalizar, o material do escopo conta pelo MAIOR entre o
+  // previsto e o lançado. Imprevisto fica fora dessa comparação e soma por
+  // cima: compra fora do escopo não pode "gastar" a verba prevista da obra.
+  // Se o material sair mais barato, o lucro fica conservador até a
+  // finalização, que trava o valor real (recebido − gastos − repasses).
+  const faltaMat = s?.finalizado_em ? 0 : Math.max(0, previsto - (gastoReal - gastoImprev));
   // Finalizado: vale o lucro guardado na finalização, que é o que foi
   // para o Fullfin (recebido − gastos − repasses).
-  const lucro = s?.finalizado_em ? num(s.lucro_final) : num(s?.valor_cobrado) - (temGasto ? gastoReal : previsto) - repasse;
-  return { repasse, repPago, lancado, recebido, aReceber: lancado - recebido, lucro, lucroPrev, previsto, gastoReal, gastoBruto, devol, gastoImprev, temGasto };
+  const lucro = s?.finalizado_em ? num(s.lucro_final) : num(s?.valor_cobrado) - gastoReal - faltaMat - repasse;
+  return { repasse, repPago, lancado, recebido, aReceber: lancado - recebido, lucro, lucroPrev, previsto, gastoReal, gastoBruto, devol, gastoImprev, temGasto, faltaMat };
 }
 const orcEditavel = o => o && (o.status === 'rascunho' || o.status === 'enviado');
 const orcVencido = o => o?.status === 'enviado' && o.emissao && addDias(o.emissao, num(o.validade_dias)) < hoje();
@@ -2040,8 +2050,9 @@ function vServ(r){
     ${t.temGasto
       ? `<tr><td>Gastos da obra</td><td class="neg money">− ${money(t.gastoReal)}</td></tr>${t.devol ? `<tr><td style="color:var(--text3);padding-left:14px">já descontados ${money(t.devol)} devolvidos em crédito</td><td></td></tr>` : ''}${t.gastoImprev ? `<tr><td style="color:var(--red);padding-left:14px">dos quais imprevistos</td><td class="money" style="color:var(--red)">${money(t.gastoImprev)}</td></tr>` : ''}`
       : `<tr><td>Material previsto</td><td class="neg money">− ${money(t.previsto)}</td></tr>`}
+    ${t.temGasto && t.faltaMat > 0 ? `<tr><td>Material ainda a comprar <small style="color:var(--text3)">(resto do previsto)</small></td><td class="neg money">− ${money(t.faltaMat)}</td></tr>` : ''}
     <tr><td>Repasses</td><td class="neg money">− ${money(t.repasse)}</td></tr>
-    <tr class="tot"><td>${fin ? 'Lucro final' : t.temGasto ? 'Seu lucro real' : 'Seu lucro previsto'}</td><td class="money" style="color:${t.lucro < 0 ? 'var(--red)' : 'var(--green)'}">${money(t.lucro)}</td></tr>
+    <tr class="tot"><td>${fin ? 'Lucro final' : t.temGasto && !t.faltaMat ? 'Seu lucro real' : 'Seu lucro previsto'}</td><td class="money" style="color:${t.lucro < 0 ? 'var(--red)' : 'var(--green)'}">${money(t.lucro)}</td></tr>
     ${t.temGasto ? `<tr><td style="color:var(--text3)">Previsto no orçamento</td><td class="money" style="color:var(--text3)">${money(t.lucroPrev)} <small>(${t.lucro - t.lucroPrev >= 0 ? '+' : '−'} ${money(Math.abs(t.lucro - t.lucroPrev))})</small></td></tr>` : ''}
     <tr><td style="color:var(--text3)">Já recebido</td><td class="money" style="color:var(--text3)">${money(t.recebido)}</td></tr>
     <tr><td style="color:var(--text3)">Falta receber</td><td class="money" style="color:var(--text3)">${money(t.aReceber)}</td></tr>
@@ -3194,7 +3205,7 @@ function vFinanceiro(r){
 
   ${obras.length ? `<div class="sec">Obras com movimento no mês</div><div class="list">${obras.map(s => { const t = totaisServ(s.id);
     return `<a class="row" href="#/serv/${s.id}"><div class="main"><div class="t">${esc(s.descricao)}</div>
-      <div class="m">${badgeServ(s)} ${t.temGasto ? 'lucro real' : 'lucro previsto (sem gasto lançado)'}</div></div>
+      <div class="m">${badgeServ(s)} ${!t.temGasto ? 'lucro previsto (sem gasto lançado)' : t.faltaMat ? 'lucro previsto (falta material)' : 'lucro real'}</div></div>
       <div class="r val" style="color:${t.lucro < 0 ? 'var(--red)' : 'inherit'}">${m$(t.lucro)}</div></a>`; }).join('')}</div>` : ''}
 
   <div class="sec">Custos fixos</div>
