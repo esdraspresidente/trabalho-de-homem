@@ -88,6 +88,19 @@ Estrutura comentada em `previmater-ops/_sql/tdh_03_financeiro.sql`.
   o dinheiro andou (regime de caixa, bate com o extrato), saldo da conta PJ
   pelo app, custos fixos, gastos por categoria e transferências.
 
+## Pagamento parcial (v1.16.0)
+
+- **"Recebi" tem o campo Valor recebido.** Menos que o previsto: o
+  lançamento fica com o que entrou (recebido) e o resto vira um "Saldo"
+  pendente, com a mesma previsão. Mais que o previsto: a sobra abate as
+  próximas parcelas.
+- **"+ Lançar" já recebido** abate do pendente o que passar do valor do
+  serviço (a parcela mais antiga primeiro; zerada, é apagada).
+- **"Abater do pendente"** no aviso "Lançado X, mas o serviço vale Y"
+  corrige o que já tinha sido lançado a mais.
+- Recebido nunca é mexido. Pela voz, valor diferente do previsto agora
+  é baixa parcial (antes sobrescrevia o previsto).
+
 ## Finalizar serviço e Fullfin (v1.4.0)
 
 - **Finalizar serviço** abre a tela "Revisar e finalizar": tudo que entrou,

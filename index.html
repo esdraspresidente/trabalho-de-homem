@@ -451,7 +451,7 @@ const ESDRAS_TERC = 'bc9ada70-7a26-4320-ac78-1f9dd208a0da';
 // e o orçamento 653 já saiu com eles.
 const EMPRESA = { nome:'Esdras de Oliveira Almeida', whats:'(41) 9 9866-5095', insta:'@trabalhodehomem.cwb',
   slogan:'Reparos, instalações e manutenção · Curitiba e região' };
-const APP_VER = '1.15.0';
+const APP_VER = '1.16.0';
 
 /* ═══ Modo invisível (Concierge) — 11/11/2026 ═════════════════════════
    O Concierge abre este app escondido (iframe, ?situacao=1) só para montar
@@ -2028,7 +2028,8 @@ function vServ(r){
       <div class="m">${x.recebido_em ? `<span style="color:var(--green);font-weight:700">Recebido ${fmtData(x.recebido_em)}</span>${x.forma_pagamento ? ' · ' + esc(x.forma_pagamento) : ''}${pfInfo('receb', x)}` : (x.previsao ? `Previsto ${fmtData(x.previsao)}${x.previsao < hoje() ? ' · <b style="color:var(--red)">atrasado</b>' : ''}` : 'Sem previsão')}</div></div>
       ${x.recebido_em ? `<span class="badge b-green">${ic('check')}</span>` : `<button class="btn btn-sm btn-p" onclick="modalBaixa('${x.id}')">Recebi</button>`}</div>`).join('')
     : '<div class="empty">Nada lançado.</div>'}</div>
-  ${Math.abs(t.lancado - num(s.valor_cobrado)) > 0.005 ? `<div class="warn" style="margin-top:8px">${ic('alert')}<span>Lançado <b class="money">${money(t.lancado)}</b>, mas o serviço vale <b class="money">${money(s.valor_cobrado)}</b>. ${t.lancado < num(s.valor_cobrado) ? `<button class="lnk" style="border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer;padding:0" onclick="lancarDiferenca('${s.id}')">Lançar a diferença</button>` : ''}</span></div>` : ''}
+  ${Math.abs(t.lancado - num(s.valor_cobrado)) > 0.005 ? `<div class="warn" style="margin-top:8px">${ic('alert')}<span>Lançado <b class="money">${money(t.lancado)}</b>, mas o serviço vale <b class="money">${money(s.valor_cobrado)}</b>. ${t.lancado < num(s.valor_cobrado) ? `<button class="lnk" style="border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer;padding:0" onclick="lancarDiferenca('${s.id}')">Lançar a diferença</button>`
+      : rs.some(r => !r.recebido_em) && !fin ? `<button class="lnk" style="border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer;padding:0" onclick="abaterDoPendente('${s.id}')">Abater do pendente</button>` : ''}</span></div>` : ''}
 
   <div class="sec">Prestadores e repasses ${fin ? '' : `<button class="lnk" onclick="modalVinc('${s.id}')">+ Prestador</button>`}</div>
   <div class="list">${vs.length ? vs.map(v => { const p = prestador(v.prestador_id);
@@ -2167,15 +2168,22 @@ function chipUnico(el){ const on = el.classList.contains('on'); el.parentElement
 const chipSel = id => $(id)?.querySelector('.chip.on')?.textContent || null;
 async function salvarReceb(sid, rid){
   const v = parseMoney(fv('rc-val')); if (!v) return toast('Coloque o valor.', true);
+  let abatido = 0;
   const row = { descricao:fv('rc-desc').trim() || 'Pagamento', valor:v, previsao:fv('rc-prev') || null, recebido_em:fv('rc-rec') || null, forma_pagamento:chipSel('rc-forma'),
     ...contaPatch(segVal('rc-conta')) };
   // Recebimento que voltou a "não recebido" não tem o que acertar.
   if (!row.recebido_em) Object.assign(row, { acerto:null, acerto_em:null });
   const ok = await act(async () => {
     if (rid) { const [n] = await db.upd('tdh_recebimentos', eqId(rid), row); Object.assign(S.receb.find(r => r.id === rid), n); }
-    else S.receb.push(...await db.ins('tdh_recebimentos', { ...row, servico_id:sid }));
-    await load('transf'); return true; }, 'Salvo.');
-  if (ok) { closeModal(); rerender(); }
+    else {
+      const [n] = await db.ins('tdh_recebimentos', { ...row, servico_id:sid }); S.receb.push(n);
+      // Pagamento novo já recebido é parte do que estava previsto, não
+      // dinheiro a mais: abate do pendente (só o que passar do valor do
+      // serviço, para não comer um aditivo lançado de propósito).
+      if (row.recebido_em) abatido = await abaterPendentes(sid, n.id);
+    }
+    await load('transf'); return true; }, null);
+  if (ok) { toast(abatido ? `Salvo. Abati ${money(abatido)} do pagamento previsto.` : 'Salvo.'); closeModal(); rerender(); }
 }
 // pre: comando de voz (data, forma e conta faladas). Mostra também de
 // qual obra é, porque pela voz a tela abre fora da página do serviço.
@@ -2183,15 +2191,31 @@ function modalBaixa(rid, pre){
   const x = S.receb.find(r => r.id === rid), pc = pre?.campos || {}, sv = pre ? serv(x.servico_id) : null;
   const forma = pc.forma || FORMAS[0];
   openModal('Recebi', `${pre ? vozBanner(pre) : ''}<p style="margin:-4px 0 12px"><b>${esc(x.descricao)}</b> · <span class="money">${money(x.valor)}</span>${sv ? `<br><span style="color:var(--text2);font-size:13.5px">${esc(sv.descricao)}${cliente(sv.cliente_id) ? ' · ' + esc(nomeC(cliente(sv.cliente_id))) : ''}</span>` : ''}</p>
-    <div class="field"><label>Data</label><input class="in" type="date" id="bx-data" value="${pc.data || hoje()}"></div>
+    <div class="f2"><div class="field"><label>Valor recebido (R$)</label><input class="in num" id="bx-val" inputmode="numeric" data-money value="${moneyIn(pc.valor || x.valor)}"></div>
+      <div class="field"><label>Data</label><input class="in" type="date" id="bx-data" value="${pc.data || hoje()}"></div></div>
+    <div class="hint" style="font-size:12.5px;color:var(--text3);margin:-6px 0 12px">Pagou só uma parte? Ponha o valor que entrou: o resto continua pendente.</div>
     <div class="field"><label>Forma</label><div class="chips" id="bx-forma">${FORMAS.map(f => `<button class="chip ${f === forma ? 'on' : ''}" onclick="chipUnico(this)">${f}</button>`).join('')}</div></div>
     <div class="field"><label>Caiu em</label>${segConta('bx-conta', pre ? pc.conta : (x.carteira_id || x.conta))}</div>
     <button class="btn btn-p btn-w" onclick="darBaixa('${rid}')">${ic('check')} Confirmar</button>`);
 }
+// Pagamento parcial: o lançamento vira o valor que entrou (recebido) e o
+// resto nasce como um lançamento novo, pendente, com a mesma previsão.
+// Dividir em dois, em vez de guardar "quanto já entrou" num campo só, é o
+// que mantém cada entrada com a sua data, forma e conta (PJ/PF): o
+// Financeiro e o acerto da PF trabalham por lançamento.
 async function darBaixa(rid){
   const x = S.receb.find(r => r.id === rid), d = fv('bx-data'); if (!d) return toast('Escolha a data.', true);
-  const ok = await act(async () => { const [n] = await db.upd('tdh_recebimentos', eqId(rid), { recebido_em:d, forma_pagamento:chipSel('bx-forma'), ...contaPatch(segVal('bx-conta')) }); Object.assign(x, n); return true; }, 'Recebimento lançado.');
+  const v = parseMoney(fv('bx-val')); if (!v) return toast('Coloque o valor recebido.', true);
+  const previsto = num(x.valor), resto = Math.round((previsto - v)*100)/100;
+  let abatido = 0;
+  const ok = await act(async () => {
+    const [n] = await db.upd('tdh_recebimentos', eqId(rid), { valor:v, recebido_em:d, forma_pagamento:chipSel('bx-forma'), ...contaPatch(segVal('bx-conta')) }); Object.assign(x, n);
+    if (resto > 0.005) S.receb.push(...await db.ins('tdh_recebimentos', { servico_id:x.servico_id, descricao:'Saldo', valor:resto, previsao:x.previsao || null }));
+    // Pagou mais que a parcela: a sobra abate as próximas parcelas.
+    else if (resto < -0.005) abatido = await abaterPendentes(x.servico_id, rid);
+    await load('transf'); return true; }, null);
   if (!ok) return;
+  toast(resto > 0.005 ? `Recebido ${money(v)}. Ficou ${money(resto)} pendente.` : abatido ? `Recebido. Abati ${money(abatido)} das próximas parcelas.` : 'Recebimento lançado.');
   // Caiu na PF: já pergunta o acerto. Pode deixar para depois; fica na
   // lista "Acertar com a PF" do Financeiro.
   if (x.conta === 'pf') modalAcerto('receb', rid); else { closeModal(); rerender(); }
@@ -2200,6 +2224,30 @@ function excluirReceb(rid){ closeModal();
   confirmar('Excluir lançamento', 'Apagar este recebimento?', 'Excluir', async () => {
     const ok = await act(async () => { await db.del('tdh_recebimentos', eqId(rid)); S.receb = S.receb.filter(r => r.id !== rid); await load('transf'); return true; });
     if (ok) rerender(); }, true); }
+// Quando o lançado passa do valor do serviço, tira a sobra dos lançamentos
+// ainda não recebidos (o mais antigo primeiro): parcela zerada é apagada,
+// a outra fica com o que sobrar. Recebido nunca é mexido — é dinheiro que
+// já entrou. Só corta até o valor do serviço: se não houver pendente
+// suficiente, o aviso "Lançado X, mas o serviço vale Y" continua na tela.
+// Devolve quanto abateu.
+async function abaterPendentes(sid, poupar){
+  const s = serv(sid); let sobra = Math.round((totaisServ(sid).lancado - num(s.valor_cobrado))*100)/100, abatido = 0;
+  if (sobra <= 0.005) return 0;
+  const pend = recebDe(sid).filter(r => !r.recebido_em && r.id !== poupar)
+    .sort((a,b) => (a.previsao || '9999').localeCompare(b.previsao || '9999') || String(a.created_at).localeCompare(String(b.created_at)));
+  for (const p of pend) {
+    if (sobra <= 0.005) break;
+    const tira = Math.min(sobra, num(p.valor)), fica = Math.round((num(p.valor) - tira)*100)/100;
+    if (fica <= 0.005) { await db.del('tdh_recebimentos', eqId(p.id)); S.receb = S.receb.filter(r => r.id !== p.id); }
+    else { const [n] = await db.upd('tdh_recebimentos', eqId(p.id), { valor:fica }); Object.assign(p, n); }
+    sobra = Math.round((sobra - tira)*100)/100; abatido += tira;
+  }
+  return Math.round(abatido*100)/100;
+}
+async function abaterDoPendente(sid){
+  const ab = await act(() => abaterPendentes(sid));
+  if (ab) { toast(`Abati ${money(ab)} do pagamento previsto.`); rerender(); }
+}
 async function lancarDiferenca(sid){
   const s = serv(sid), t = totaisServ(sid), v = Math.round((num(s.valor_cobrado) - t.lancado)*100)/100;
   const ok = await act(async () => { S.receb.push(...await db.ins('tdh_recebimentos', { servico_id:sid, descricao:'Saldo', valor:v })); return true; }, 'Diferença lançada.');
@@ -2758,13 +2806,12 @@ async function vozAplicar(j){
   if (j.acao === 'orcamento_aprovado') return aprovarOrc(c.orcamento_id, j);
   if (j.acao === 'repasse_pago') return pagarRepasse(c.repasse_id, j);
   if (j.acao === 'marcar_dia') return modalAgenda(c.servico_id, null, j);
-  // Recebimento: valor igual ao previsto (ou não dito) → "Recebi" daquele
-  // lançamento. Valor diferente → edita o lançamento com o valor falado.
+  // Recebimento com lançamento previsto → "Recebi" daquele lançamento, com
+  // o valor falado. Menor que o previsto = parcial (o resto fica pendente);
+  // maior = a sobra abate as próximas parcelas. Antes, valor diferente
+  // sobrescrevia o previsto e o saldo sumia.
   // Sem lançamento previsto → recebimento novo na obra.
-  if (c.receb_id) {
-    const x = S.receb.find(r => r.id === c.receb_id);
-    return (!c.valor || Math.abs(num(x.valor) - c.valor) < 0.005) ? modalBaixa(x.id, j) : modalReceb(x.servico_id, x.id, j);
-  }
+  if (c.receb_id) return modalBaixa(c.receb_id, j);
   return modalReceb(c.servico_id, null, j);
 }
 
